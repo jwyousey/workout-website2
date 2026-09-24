@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — WorkoutTracker{% endblock %}
+{% block header_color %}#ff5500{% endblock %}{% block header_title %}Dashboard{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:20px;">
+  <h1 class="page-title">Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <p class="page-sub" style="margin:0;">{{ now }}</p>
+    {% if day_workout %}
+    <span style="font-size:12px;font-weight:600;color:{{ day_workout[2] }};background:{{ day_workout[2] }}22;border:1px solid {{ day_workout[2] }}44;border-radius:20px;padding:2px 10px;white-space:nowrap;">{{ day_workout[0] }} · {{ day_workout[1] | safe }} Day</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- No sweets counter -->
+<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:4px;padding:10px 16px;margin-bottom:20px;gap:12px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:20px;">🍬</span>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;">Days Without Sweets</div>
+      <div style="font-size:22px;font-weight:800;color:{% if days_since_sweet is not none %}{% if days_since_sweet >= 7 %}#6ee7b7{% elif days_since_sweet >= 3 %}#fcd34d{% else %}#fca5a5{% endif %}{% else %}var(--text-2){% endif %};line-height:1.2;" id="sweetCount">
+        {% if days_since_sweet is not none %}{{ days_since_sweet }}{% else %}—{% endif %}
+      </div>
+      {% if last_sweet %}<div style="font-size:11px;color:var(--text-3);margin-top:2px;">Last: {{ last_sweet | format_date }}</div>{% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;">
+    <button onclick="logSweet()" style="border:1px solid rgba(252,165,165,0.3);background:rgba(252,165,165,0.08);color:#fca5a5;padding:6px 14px;border-radius:3px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;font-family:inherit;" onmouseover="this.style.background='rgba(252,165,165,0.18)'" onmouseout="this.style.background='rgba(252,165,165,0.08)'">I ate a sweet</button>
+    <button onclick="document.getElementById('sweetModal').showModal()" style="border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:var(--text-3);padding:6px 10px;border-radius:3px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Manage</button>
+  </div>
+</div>
+
+<!-- Sweet Days Modal -->
+<dialog id="sweetModal" style="background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:24px;max-width:320px;width:90%;color:var(--text);">
+  <h2 style="font-size:15px;font-weight:700;margin-bottom:16px;">Sweet Days</h2>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+    <div style="border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px;">Log a Day</div>
+      <input type="date" id="sweetDate" value="{{ today_str }}" max="{{ today_str }}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:6px 8px;border-radius:3px;font-size:12px;box-sizing:border-box;font-family:inherit;margin-bottom:8px;">
+      <button onclick="addSweet()" style="width:100%;background:rgba(252,165,165,0.1);border:1px solid rgba(252,165,165,0.3);color:#fca5a5;padding:8px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='rgba(252,165,165,0.2)'" onmouseout="this.style.background='rgba(252,165,165,0.1)'">Log Day</button>
+    </div>
+  </div>
+  {% if sweet_dates %}
+  <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">
+    <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px;">Logged Days</div>
+    <div style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;">
+      {% for d in sweet_dates %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+        <span style="font-size:12px;color:var(--text-2);">{{ d | format_date }}</span>
+        <button onclick="removeSweet('{{ d }}')" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:inherit;">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <button onclick="document.getElementById('sweetModal').close()" style="margin-top:14px;background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;font-family:inherit;padding:0;">Close</button>
+</dialog>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#ff5500;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Lifts</div>
+    <div class="stat-num" style="color:#93c5fd;" data-target="{{ workout_count }}">{{ workout_count }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Weight</div>
+    <div class="stat-num" style="color:#fcd34d;font-size:{% if latest_weight %}26px{% else %}34px{% endif %};">
+      {% if latest_weight %}{{ latest_weight.weight }}<span style="font-size:12px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest_weight.unit }}</span>
+      {% else %}—{% endif %}
+    </div>
+    {% if weight_trend and weight_trend | length > 1 %}
+    {% set wt_min = weight_trend | min %}
+    {% set wt_max = weight_trend | max %}
+    {% set wt_range = wt_max - wt_min if wt_max != wt_min else 1 %}
+    <svg viewBox="0 0 60 20" style="width:60px;height:20px;margin-top:4px;" preserveAspectRatio="none">
+      <polyline fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+        points="{% for w in weight_trend %}{{ (loop.index0 * 60 / (weight_trend|length - 1)) | round(1) }},{{ (20 - (w - wt_min) / wt_range * 16 - 2) | round(1) }}{% if not loop.last %} {% endif %}{% endfor %}" />
+    </svg>
+    {% endif %}
+    {% if latest_weight %}<div style="font-size:10px;color:var(--text-3);margin-top:{% if weight_trend and weight_trend | length > 1 %}2{% else %}5{% endif %}px;">{{ latest_weight.date | format_date }}</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:#cc2200;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">PRs</div>
+    <div class="stat-num" style="color:#ff6644;" data-target="{{ pr_count }}">{{ pr_count }}</div>
+  </div>
+</div>
+
+<!-- Last activity -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+  <div class="stat-card" style="--stat-accent:#ff5500;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Last Lift</div>
+    <div class="stat-num" data-no-animate style="color:{% if days_since_lift is not none and days_since_lift > 7 %}#f87171{% elif days_since_lift is not none %}#93c5fd{% else %}var(--text-3){% endif %};font-size:22px;">
+      {% if days_since_lift == 0 %}Today
+      {% elif days_since_lift == 1 %}Yesterday
+      {% elif days_since_lift is not none %}{{ days_since_lift }}<span style="font-size:13px;color:var(--text-3);font-weight:500;margin-left:2px;">d ago</span>
+      {% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Last Cardio</div>
+    <div class="stat-num" data-no-animate style="color:{% if days_since_cardio is not none and days_since_cardio > 7 %}#f87171{% elif days_since_cardio is not none %}#fcd34d{% else %}var(--text-3){% endif %};font-size:22px;">
+      {% if days_since_cardio == 0 %}Today
+      {% elif days_since_cardio == 1 %}Yesterday
+      {% elif days_since_cardio is not none %}{{ days_since_cardio }}<span style="font-size:13px;color:var(--text-3);font-weight:500;margin-left:2px;">d ago</span>
+      {% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Sleep cards -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+  <a href="/sleep" style="text-decoration:none;">
+    <div class="stat-card" style="--stat-accent:#8b5cf6;height:100%;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">{% if sleep_is_recent %}Last Night's Sleep{% else %}Most Recent Sleep{% endif %}</div>
+      {% if latest_sleep %}
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        {% if latest_sleep.duration_min %}
+        <span style="font-size:22px;font-weight:800;color:#c4b5fd;line-height:1;">{{ latest_sleep.duration_min // 60 }}<span style="font-size:13px;font-weight:600;">h</span> {{ latest_sleep.duration_min % 60 }}<span style="font-size:13px;font-weight:600;">m</span></span>
+        {% endif %}
+        {% if latest_sleep.quality %}
+        <span style="font-size:17px;font-weight:800;color:{% if latest_sleep.quality >= 80 %}#6ee7b7{% elif latest_sleep.quality >= 60 %}#fcd34d{% else %}#fca5a5{% endif %};">{{ latest_sleep.quality }}<span style="font-size:11px;font-weight:500;color:var(--text-3);margin-left:1px;">/100</span></span>
+        {% endif %}
+      </div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:4px;">{{ latest_sleep.date | format_date }}</div>
+      {% else %}
+      <div style="font-size:22px;font-weight:800;color:var(--text-3);">—</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px;">No sleep logged yet</div>
+      {% endif %}
+    </div>
+  </a>
+  <a href="/sleep" style="text-decoration:none;">
+    <div class="stat-card" style="--stat-accent:#8b5cf6;height:100%;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">7-Day Avg</div>
+      {% if avg_sleep and avg_sleep.avg_duration %}
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:22px;font-weight:800;color:#c4b5fd;line-height:1;">{{ avg_sleep.avg_duration // 60 | int }}<span style="font-size:13px;font-weight:600;">h</span> {{ avg_sleep.avg_duration % 60 | int }}<span style="font-size:13px;font-weight:600;">m</span></span>
+        {% if avg_sleep.avg_quality %}
+        <span style="font-size:17px;font-weight:800;color:{% if avg_sleep.avg_quality >= 80 %}#6ee7b7{% elif avg_sleep.avg_quality >= 60 %}#fcd34d{% else %}#fca5a5{% endif %};">{{ avg_sleep.avg_quality | round | int }}<span style="font-size:11px;font-weight:500;color:var(--text-3);margin-left:1px;">/100</span></span>
+        {% endif %}
+      </div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:4px;">Last 7 days</div>
+      {% else %}
+      <div style="font-size:22px;font-weight:800;color:var(--text-3);">—</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px;">No sleep logged yet</div>
+      {% endif %}
+    </div>
+  </a>
+</div>
+
+<!-- Streaks -->
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#ff5500;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Lift Streak</div>
+    <div style="font-size:26px;font-weight:800;color:#93c5fd;line-height:1;" class="stat-num" data-target="{{ workout_streak }}">{{ workout_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
+    <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:{{ [workout_streak * 100 // 7, 100] | min }}%;background:#ff5500;border-radius:2px;transition:width 1s ease;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [workout_streak, 7] | min }}/7 day goal</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Cardio Streak</div>
+    <div style="font-size:26px;font-weight:800;color:#fcd34d;line-height:1;" class="stat-num" data-target="{{ cardio_streak }}">{{ cardio_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
+    <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:{{ [cardio_streak * 100 // 7, 100] | min }}%;background:#f59e0b;border-radius:2px;transition:width 1s ease;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [cardio_streak, 7] | min }}/7 day goal</div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#8b5cf6;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Sleep Streak</div>
+    <div style="font-size:26px;font-weight:800;color:#c4b5fd;line-height:1;" class="stat-num" data-target="{{ sleep_streak }}">{{ sleep_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
+    <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:{{ [sleep_streak * 100 // 7, 100] | min }}%;background:#8b5cf6;border-radius:2px;transition:width 1s ease;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [sleep_streak, 7] | min }}/7 day goal</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#10b981;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Weight Streak</div>
+    <div style="font-size:26px;font-weight:800;color:#6ee7b7;line-height:1;" class="stat-num" data-target="{{ weight_streak }}">{{ weight_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
+    <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:{{ [weight_streak * 100 // 7, 100] | min }}%;background:#10b981;border-radius:2px;transition:width 1s ease;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [weight_streak, 7] | min }}/7 day goal</div>
+  </div>
+</div>
+
+<!-- This week summary -->
+<div class="card" style="margin-bottom:16px;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text-2);">This Week</div>
+    <button onclick="document.getElementById('restDayModal').showModal()" style="border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.07);color:#fbbf24;padding:4px 12px;border-radius:3px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;font-family:inherit;" onmouseover="this.style.background='rgba(251,191,36,.15)'" onmouseout="this.style.background='rgba(251,191,36,.07)'">+ Rest Day</button>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+    {% for day in week_days %}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+      <span style="font-size:10px;font-weight:600;color:{% if day.is_today %}var(--accent){% else %}var(--text-3){% endif %};text-transform:uppercase;letter-spacing:.05em;">{{ day.label }}</span>
+      <div style="display:flex;flex-direction:column;gap:3px;align-items:center;">
+        {% if day.rest %}
+        <div onclick="removeRestDay('{{ day.date }}')" style="width:22px;height:10px;border-radius:3px;background:rgba(251,191,36,.18);border:1px solid rgba(251,191,36,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Click to remove rest day"><span style="font-size:7px;color:#fbbf24;font-weight:700;letter-spacing:.02em;">REST</span></div>
+        {% else %}
+        <div style="width:10px;height:10px;border-radius:50%;background:{% if day.lift %}#93c5fd{% elif day.future %}transparent{% else %}rgba(255,255,255,0.07){% endif %};border:1px solid {% if day.lift %}#3b82f6{% elif day.future %}rgba(255,255,255,0.08){% else %}rgba(255,255,255,0.12){% endif %};" title="Lift"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:{% if day.cardio %}#fcd34d{% elif day.future %}transparent{% else %}rgba(255,255,255,0.07){% endif %};border:1px solid {% if day.cardio %}#f59e0b{% elif day.future %}rgba(255,255,255,0.08){% else %}rgba(255,255,255,0.12){% endif %};" title="Cardio"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:{% if day.sleep %}#c4b5fd{% elif day.future %}transparent{% else %}rgba(255,255,255,0.07){% endif %};border:1px solid {% if day.sleep %}#8b5cf6{% elif day.future %}rgba(255,255,255,0.08){% else %}rgba(255,255,255,0.12){% endif %};" title="Sleep"></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    <span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#93c5fd;display:inline-block;"></span>Lift</span>
+    <span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#fcd34d;display:inline-block;"></span>Cardio</span>
+    <span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#c4b5fd;display:inline-block;"></span>Sleep</span>
+    <span style="font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:5px;"><span style="width:14px;height:8px;border-radius:2px;background:rgba(251,191,36,.18);border:1px solid rgba(251,191,36,.5);display:inline-block;"></span>Rest</span>
+  </div>
+</div>
+
+<!-- Rest Day Modal -->
+<dialog id="restDayModal" style="background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:24px;max-width:320px;width:90%;color:var(--text);">
+  <h2 style="font-size:15px;font-weight:700;margin-bottom:6px;">Log Rest Day</h2>
+  <p style="font-size:12px;color:var(--text-3);margin-bottom:20px;">Rest days are skipped in streak calculations.</p>
+  <div style="margin-bottom:12px;">
+    <label style="font-size:10px;color:var(--text-3);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Reason</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;" id="reasonChips">
+      {% for r in ['Vacation', 'Travel', 'Sick', 'Too Tired', 'Too Busy', 'Recovery', 'Other'] %}
+      <button type="button" onclick="selectReason(this, '{{ r }}')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text-3);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">{{ r }}</button>
+      {% endfor %}
+    </div>
+    <input type="text" id="restReason" placeholder="Or type a custom reason…" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:6px 8px;border-radius:3px;font-size:12px;box-sizing:border-box;font-family:inherit;">
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px;">Single Day</div>
+      <input type="date" id="restSingle" value="{{ today_str }}" max="{{ today_str }}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:6px 8px;border-radius:3px;font-size:12px;box-sizing:border-box;font-family:inherit;margin-bottom:8px;">
+      <button onclick="logRestDay('single')" style="width:100%;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24;padding:8px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='rgba(251,191,36,.2)'" onmouseout="this.style.background='rgba(251,191,36,.1)'">Log Day</button>
+    </div>
+    <div style="border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px;">Date Range</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <label style="font-size:10px;color:var(--text-3);display:block;margin-bottom:3px;">From</label>
+          <input type="date" id="restStart" value="{{ today_str }}" max="{{ today_str }}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:6px 8px;border-radius:3px;font-size:12px;box-sizing:border-box;font-family:inherit;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text-3);display:block;margin-bottom:3px;">To</label>
+          <input type="date" id="restEnd" value="{{ today_str }}" max="{{ today_str }}" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:6px 8px;border-radius:3px;font-size:12px;box-sizing:border-box;font-family:inherit;">
+        </div>
+      </div>
+      <button onclick="logRestDay('range')" style="width:100%;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24;padding:8px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='rgba(251,191,36,.2)'" onmouseout="this.style.background='rgba(251,191,36,.1)'">Log Range</button>
+    </div>
+  </div>
+  {% if rest_day_dates %}
+  <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">
+    <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px;">Logged Rest Days</div>
+    <div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;">
+      {% for d in rest_day_dates | sort(reverse=True) %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;gap:8px;">
+        <div>
+          <span style="font-size:12px;color:var(--text-2);">{{ d | format_date }}</span>
+          {% if rest_day_map[d] %}<span style="font-size:11px;color:var(--text-3);margin-left:6px;">{{ rest_day_map[d] }}</span>{% endif %}
+        </div>
+        <button onclick="removeRestDay('{{ d }}')" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:inherit;flex-shrink:0;">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <button onclick="document.getElementById('restDayModal').close()" style="margin-top:14px;background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;font-family:inherit;padding:0;">Cancel</button>
+</dialog>
+
+<!-- Key lifts -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Bench 1RM</div>
+    <div style="font-size:26px;font-weight:800;color:#fcd34d;line-height:1;">
+      {% if bench_1rm and bench_1rm.w %}{% if bench_1rm.estimated %}~{% endif %}{{ bench_1rm.w }}<span style="font-size:12px;color:var(--text-3);font-weight:500;margin-left:3px;">{{ bench_1rm.unit or 'lbs' }}{% if bench_1rm.estimated %} est.{% endif %}</span>{% else %}<span style="color:var(--text-3);">—</span>{% endif %}
+    </div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#8b5cf6;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Squat 1RM</div>
+    <div style="font-size:26px;font-weight:800;color:#c4b5fd;line-height:1;">
+      {% if squat_1rm and squat_1rm.w %}{% if squat_1rm.estimated %}~{% endif %}{{ squat_1rm.w }}<span style="font-size:12px;color:var(--text-3);font-weight:500;margin-left:3px;">{{ squat_1rm.unit or 'lbs' }}{% if squat_1rm.estimated %} est.{% endif %}</span>{% else %}<span style="color:var(--text-3);">—</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+
+<!-- Recent workouts -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+  <h2 style="font-size:15px;font-weight:700;">Recent Lifts</h2>
+  <a href="/workouts" style="font-size:13px;color:var(--accent);font-weight:500;">View all →</a>
+</div>
+{% if recent_workouts %}
+{% set accent_map = {
+  'push':      ('#3b82f6', 'rgba(59,130,246,.07)'),
+  'pull':      ('#10b981', 'rgba(16,185,129,.07)'),
+  'legs':      ('#f59e0b', 'rgba(245,158,11,.07)'),
+  'chest':     ('#8b5cf6', 'rgba(139,92,246,.07)'),
+  'back':      ('#8b5cf6', 'rgba(139,92,246,.07)'),
+  'arm':       ('#ec4899', 'rgba(236,72,153,.07)'),
+  'shoulder':  ('#ec4899', 'rgba(236,72,153,.07)')
+} %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  {% for w in recent_workouts %}
+  {% set wname = (w.name or '') | lower %}
+  {% set colors = accent_map.get(wname.split()[0] if wname else '', ('#6366f1', 'rgba(99,102,241,.15)')) %}
+  {% for key, val in accent_map.items() %}{% if key in wname %}{% set colors = val %}{% endif %}{% endfor %}
+  <a href="/workouts/{{ w.id }}" style="text-decoration:none;flex:0 0 160px;">
+    <div style="background:var(--card);border:1px solid rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;height:100%;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+      <div style="height:5px;background:{{ colors[0] }};"></div>
+      <div style="padding:12px;background:{{ colors[1] }};">
+        <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.2;">{{ w.name or 'Workout' }}</div>
+        <div style="font-size:11px;color:{{ colors[0] }};font-weight:600;margin-top:3px;">{{ w.date | format_date_short }}</div>
+      </div>
+      <div style="padding:10px 12px 12px;">
+        {% set exs = recent_exercises.get(w.id, []) %}
+        {% for ex in exs %}
+        <div style="font-size:12px;color:var(--text-2);line-height:1.6;">{{ loop.index }}-{{ ex.exercise_name }} <span style="color:var(--text-3);">{{ ex.set_count }}x{% if ex.avg_reps %}{{ ex.avg_reps }}{% endif %}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align:center;padding:32px;color:var(--text-3);font-size:14px;">
+    No lifts yet. <a href="/workouts/new" style="color:var(--accent);font-weight:500;">Log your first one!</a>
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+async function logSweet() {
+  await fetch('/sweet/log', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date: '{{ today_str }}'}) });
+  location.reload();
+}
+async function addSweet() {
+  const date = document.getElementById('sweetDate').value;
+  if (!date) return;
+  const r = await fetch('/sweet/log', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date}) });
+  if (r.ok) { document.getElementById('sweetModal').close(); location.reload(); }
+  else alert('Failed to log sweet day.');
+}
+async function removeSweet(date) {
+  const r = await fetch('/sweet/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date}) });
+  if (r.ok) { document.getElementById('sweetModal').close(); location.reload(); }
+  else alert('Failed to remove sweet day.');
+}
+async function removeRestDay(date) {
+  const r = await fetch('/api/rest-days/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({date}) });
+  if (r.ok) location.reload();
+  else alert('Failed to remove rest day.');
+}
+function selectReason(btn, value) {
+  document.querySelectorAll('#reasonChips button').forEach(b => {
+    b.style.background = 'rgba(255,255,255,0.05)';
+    b.style.borderColor = 'rgba(255,255,255,0.12)';
+    b.style.color = 'var(--text-3)';
+  });
+  btn.style.background = 'rgba(251,191,36,.15)';
+  btn.style.borderColor = 'rgba(251,191,36,.5)';
+  btn.style.color = '#fbbf24';
+  document.getElementById('restReason').value = value;
+}
+async function logRestDay(mode) {
+  const start = mode === 'range' ? document.getElementById('restStart').value : document.getElementById('restSingle').value;
+  const end   = mode === 'range' ? document.getElementById('restEnd').value   : start;
+  const reason = document.getElementById('restReason').value.trim() || null;
+  if (!start || !end || start > end) { alert('Invalid date range.'); return; }
+  const r = await fetch('/api/rest-days', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({start, end, reason}) });
+  if (r.ok) { document.getElementById('restDayModal').close(); location.reload(); }
+  else { alert('Failed to save rest day.'); }
+}
+</script>
+{% endblock %}

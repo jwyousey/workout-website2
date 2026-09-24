@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Progress Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #000000; --surface: #141414; --border: rgba(255,255,255,0.08);
+      --accent: #ff5500; --accent-dk: #e04a00; --accent-gl: rgba(255,85,0,0.15);
+      --text: #ffffff; --text-2: #888888; --text-3: #444444;
+    }
+    body { font-family: 'Barlow', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; -webkit-font-smoothing: antialiased; }
+    body::before { content:''; position:fixed; inset:0; pointer-events:none; background-image: repeating-linear-gradient(-45deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid rgba(255,85,0,0.5); border-radius: 4px; padding: 32px; width: 100%; max-width: 360px; position: relative; z-index: 1; box-shadow: 0 8px 40px rgba(0,0,0,.8); clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); }
+    .logo { font-size: 24px; font-weight: 900; margin-bottom: 28px; text-align: center; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 2px; }
+    .label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 6px; letter-spacing: .08em; text-transform: uppercase; }
+    .input { width: 100%; background: #0a0a0a; border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; font-size: 15px; color: var(--text); outline: none; transition: border-color .15s; font-family: inherit; }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-gl); }
+    .btn { width: 100%; padding: 11px; border-radius: 3px; font-weight: 800; font-size: 13px; cursor: pointer; border: none; background: var(--accent); color: #fff; font-family: inherit; margin-top: 16px; transition: background .15s, box-shadow .15s; letter-spacing: .08em; text-transform: uppercase; }
+    .btn:hover { background: var(--accent-dk); box-shadow: 0 4px 20px rgba(255,85,0,.4); }
+    .error { background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.3); color: #fca5a5; border-radius: 3px; padding: 10px 12px; font-size: 13px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><svg style="width:20px;height:20px;display:inline;vertical-align:-3px;margin-right:8px;color:#ff5500;" fill="currentColor" viewBox="0 0 24 24"><path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>Progress Log</div>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post">
+      <label class="label">Password</label>
+      <input type="password" name="password" class="input" autofocus placeholder="Enter password" />
+      <button type="submit" class="btn">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>

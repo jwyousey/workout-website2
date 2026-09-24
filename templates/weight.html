@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+{% block title %}Body Weight — WorkoutTracker{% endblock %}
+{% block header_color %}#10b981{% endblock %}{% block header_title %}Body Weight{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
+  <h1 class="page-title">Body Weight</h1>
+  <div style="display:flex;gap:8px;">
+    <button onclick="settingsModal.showModal()" class="btn btn-ghost" title="Set goal & height">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      Settings
+    </button>
+    <button onclick="editingWeightId=null;document.querySelector('#addModal h3').textContent='Log Weight';addModal.showModal()" class="btn btn-primary">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      Log Weight
+    </button>
+  </div>
+</div>
+
+{% if entries %}
+
+<!-- Summary stats -->
+{% set latest = entries[0] %}
+{% set oldest = entries[-1] %}
+{% set total_change = (latest.weight - peak_weight) | round(1) %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;" class="stat-grid">
+  {# Row 1: Current | Last Weigh-In #}
+  <div class="stat-card" style="--stat-accent:#ff5500;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Current</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:#ffffff;line-height:1;">{{ latest.weight }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span></div>
+  </div>
+  <div class="stat-card" style="--stat-accent:{% if last_change and last_change < 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Last Weigh-In</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{% if last_change and last_change < 0 %}#6ee7b7{% elif last_change and last_change > 0 %}#fca5a5{% else %}var(--text-3){% endif %};line-height:1;">
+      {% if last_change is not none %}{% if last_change > 0 %}+{% endif %}{{ last_change }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span>{% else %}—{% endif %}
+    </div>
+  </div>
+  {# Row 2: Past 7 Days | Past 30 Days #}
+  <div class="stat-card" style="--stat-accent:{% if week_change and week_change < 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Past 7 Days</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{% if week_change and week_change < 0 %}#6ee7b7{% elif week_change and week_change > 0 %}#fca5a5{% else %}var(--text-3){% endif %};line-height:1;">
+      {% if week_change is not none %}{% if week_change > 0 %}+{% endif %}{{ week_change }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span>{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat-card" style="--stat-accent:{% if month_change and month_change < 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Past 30 Days</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{% if month_change and month_change < 0 %}#6ee7b7{% elif month_change and month_change > 0 %}#fca5a5{% else %}var(--text-3){% endif %};line-height:1;">
+      {% if month_change is not none %}{% if month_change > 0 %}+{% endif %}{{ month_change }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span>{% else %}—{% endif %}
+    </div>
+  </div>
+  {# Row 3: Past Year | Since Peak #}
+  <div class="stat-card" style="--stat-accent:{% if year_change and year_change < 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Past Year</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{% if year_change and year_change < 0 %}#6ee7b7{% elif year_change and year_change > 0 %}#fca5a5{% else %}var(--text-3){% endif %};line-height:1;">
+      {% if year_change is not none %}{% if year_change > 0 %}+{% endif %}{{ year_change }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span>{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="stat-card" style="--stat-accent:{% if total_change < 0 %}#10b981{% else %}#ef4444{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Since Peak</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{% if total_change < 0 %}#6ee7b7{% else %}#fca5a5{% endif %};line-height:1;">{% if total_change > 0 %}+{% endif %}{{ total_change }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ latest.unit }}</span></div>
+  </div>
+  {% if heaviest and lightest %}
+  <div class="stat-card" style="--stat-accent:#fca5a5;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Heaviest</div>
+    <div class="stat-num" data-no-animate style="font-size:22px;font-weight:800;color:#fca5a5;line-height:1;">{{ heaviest.weight }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ heaviest.unit }}</span></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ heaviest.date | format_date }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#6ee7b7;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Lightest</div>
+    <div class="stat-num" data-no-animate style="font-size:22px;font-weight:800;color:#6ee7b7;line-height:1;">{{ lightest.weight }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ lightest.unit }}</span></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ lightest.date | format_date }}</div>
+  </div>
+  {% endif %}
+</div>
+
+{% if bmi or bf_pct or goal_weight %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;" class="stat-grid">
+  {% if bmi %}
+  {% set bmi_cat = "Underweight" if bmi < 18.5 else ("Normal" if bmi < 25 else ("Overweight" if bmi < 30 else "Obese")) %}
+  {% set bmi_color = "#6ee7b7" if bmi < 25 else ("#fcd34d" if bmi < 30 else "#fca5a5") %}
+  <div class="stat-card" style="--stat-accent:{{ bmi_color }};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">BMI</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{{ bmi_color }};line-height:1;">{{ bmi }}</div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ bmi_cat }}</div>
+  </div>
+  {% endif %}
+  {% if bf_pct %}
+  {% set bf_color = "#6ee7b7" if bf_pct < 20 else ("#fcd34d" if bf_pct < 25 else "#fca5a5") %}
+  <div class="stat-card" style="--stat-accent:{{ bf_color }};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Est. Body Fat</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{{ bf_color }};line-height:1;">{{ bf_pct }}<span style="font-size:13px;font-weight:500;margin-left:1px;">%</span></div>
+    <div style="font-size:10px;color:var(--text-3);margin-top:4px;">Deurenberg formula</div>
+  </div>
+  {% endif %}
+  {% if goal_weight %}
+  {% set goal_color = "#6ee7b7" if to_goal and to_goal <= 0 else "#fcd34d" %}
+  <div class="stat-card" style="--stat-accent:{{ goal_color }};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Goal Weight</div>
+    <div class="stat-num" style="font-size:22px;font-weight:800;color:{{ goal_color }};line-height:1;">{{ goal_weight }}<span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:2px;">{{ entries[0].unit if entries }}</span></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">
+      {% if to_goal is not none %}
+        {% if to_goal <= 0 %}Goal reached!{% else %}{{ to_goal }} lbs to go{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if goal_weight and heaviest and entries %}
+{% set current_w = entries[0].weight %}
+{% set start_w = heaviest.weight %}
+{% set span = start_w - goal_weight %}
+{% if span > 0 %}
+{% set lost = start_w - current_w %}
+{% set pct = [[lost / span * 100, 0] | max, 100] | min | round(1) %}
+{% set at_goal = current_w <= goal_weight %}
+<div class="card" style="margin-bottom:16px;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:13px;font-weight:700;color:var(--text-2);">Goal Progress</span>
+    <span style="font-size:12px;font-weight:600;color:{% if at_goal %}#6ee7b7{% else %}#fcd34d{% endif %};">
+      {% if at_goal %}Goal reached!{% else %}{{ (current_w - goal_weight) | round(1) }} lbs to go{% endif %}
+    </span>
+  </div>
+  <div style="position:relative;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:visible;margin-bottom:8px;">
+    <div style="height:100%;width:{{ pct }}%;background:linear-gradient(90deg,#ff5500,#f59e0b);border-radius:6px;transition:width 1s ease;min-width:4px;"></div>
+    <!-- current marker -->
+    <div style="position:absolute;top:-4px;left:calc({{ pct }}% - 8px);width:16px;height:16px;border-radius:50%;border:2px solid #f59e0b;background:var(--surface2);box-shadow:0 0 8px rgba(245,158,11,.5);{% if pct > 98 %}display:none;{% endif %}"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">
+    <span>{{ start_w }} lbs <span style="opacity:.6;">(peak)</span></span>
+    <span style="font-weight:700;color:{% if at_goal %}#6ee7b7{% else %}var(--text-2){% endif %};">{{ pct }}%</span>
+    <span>{{ goal_weight }} lbs <span style="opacity:.6;">(goal)</span></span>
+  </div>
+  {% if goal_eta and not at_goal %}
+  <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+    <span style="font-size:12px;color:var(--text-3);">At current pace: <span style="font-weight:700;color:var(--text-2);">~{{ goal_eta.weeks }} weeks</span> <span style="opacity:.6;">({{ goal_eta.date | format_date }})</span></span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Chart -->
+<div class="card" style="margin-bottom:16px;padding:16px 16px 10px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:13px;font-weight:700;color:var(--text-2);">Weight Over Time</span>
+    <span style="font-size:12px;color:var(--text-3);">{{ oldest.date | format_date }} – {{ latest.date | format_date }}</span>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:12px;" id="wtRangeBtns">
+    <button class="range-btn active" onclick="setWtRange('all',this)">All</button>
+    <button class="range-btn" onclick="setWtRange('1y',this)">1Y</button>
+    <button class="range-btn" onclick="setWtRange('6m',this)">6M</button>
+    <button class="range-btn" onclick="setWtRange('3m',this)">3M</button>
+    <button class="range-btn" onclick="setWtRange('1m',this)">1M</button>
+  </div>
+  <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text-3);">
+    <span><span style="display:inline-block;width:16px;height:2px;background:#ff5500;vertical-align:middle;margin-right:4px;border-radius:1px;"></span>Weight</span>
+    <span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #f59e0b;vertical-align:middle;margin-right:4px;"></span>7-Day Avg</span>
+    {% if goal_weight %}<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #f59e0b;vertical-align:middle;margin-right:4px;opacity:.5;"></span>Goal</span>{% endif %}
+  </div>
+  <div style="position:relative;height:220px;"><canvas id="weightChart"></canvas></div>
+</div>
+
+<!-- Table -->
+<div class="card card-flush">
+  <table class="tbl">
+    <thead><tr>
+      <th>Date</th>
+      <th class="r">Weight</th>
+      <th class="r">Change</th>
+      {% if entry_stats[0].bmi %}<th class="r">BMI</th>{% endif %}
+      {% if entry_stats[0].bf %}<th class="r">Body Fat</th>{% endif %}
+      <th style="width:44px;"></th>
+    </tr></thead>
+    <tbody id="weightBody">
+      {% for e in entries %}
+      {% set es = entry_stats[loop.index0] %}
+      {% if loop.index < entries|length %}
+        {% set prev = entries[loop.index] %}
+        {% set diff = (e.weight - prev.weight) | round(2) %}
+      {% else %}
+        {% set diff = 0 %}
+      {% endif %}
+      <tr id="row-{{ e.id }}">
+        <td style="font-size:13px;">{{ e.date | format_date }}</td>
+        <td class="r" style="font-weight:700;font-size:15px;">{{ e.weight }}<span style="font-size:11px;color:var(--text-3);margin-left:2px;">{{ e.unit }}</span></td>
+        <td class="r" style="font-size:13px;font-weight:600;color:{% if diff < 0 %}#6ee7b7{% elif diff > 0 %}#fca5a5{% else %}var(--text-3){% endif %};">
+          {% if loop.index < entries|length %}
+            {% if diff > 0 %}▲ +{{ diff }}{% elif diff < 0 %}▼ {{ diff }}{% else %}—{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        {% if entry_stats[0].bmi %}
+        {% set bmi_color = "#6ee7b7" if es.bmi < 25 else ("#fcd34d" if es.bmi < 30 else "#fca5a5") %}
+        <td class="r" style="font-size:12px;font-weight:600;color:{{ bmi_color }};">{{ es.bmi }}</td>
+        {% endif %}
+        {% if entry_stats[0].bf %}
+        {% set bf_color = "#6ee7b7" if es.bf < 20 else ("#fcd34d" if es.bf < 25 else "#fca5a5") %}
+        <td class="r" style="font-size:12px;font-weight:600;color:{{ bf_color }};">{{ es.bf }}%</td>
+        {% endif %}
+        <td style="text-align:right;padding-right:8px;white-space:nowrap;">
+          <button onclick="editEntry({{ e.id }}, '{{ e.date }}', {{ e.weight }}, '{{ e.unit }}')" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);transition:color .15s;padding:4px 6px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="deleteEntry({{ e.id }})" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);transition:color .15s;padding:4px 6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:64px;">
+  <div style="margin-bottom:12px;"><svg style="width:48px;height:48px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg></div>
+  <p style="color:var(--text-3);">No weight entries yet.</p>
+  <button onclick="addModal.showModal()" class="btn btn-primary" style="margin-top:16px;">Log your first entry</button>
+</div>
+{% endif %}
+
+<dialog id="addModal" onclick="if(event.target===this)this.close()">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 style="font-size:17px;font-weight:700;">Log Weight</h3>
+    <button onclick="addModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div><label class="label">Date</label><input type="date" id="pwDate" class="input" value="{{ today }}" data-local-today /></div>
+    <div>
+      <label class="label">Weight</label>
+      <div style="display:flex;gap:8px;">
+        <input type="number" id="pwValue" step="0.1" class="input" placeholder="e.g. 175.5" />
+        <select id="pwUnit" class="input" style="width:72px;"><option>lbs</option><option>kg</option></select>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveWeight()">Save</button>
+    <button class="btn btn-ghost" onclick="addModal.close()">Cancel</button>
+  </div>
+</dialog>
+
+<dialog id="settingsModal" onclick="if(event.target===this)this.close()">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 style="font-size:17px;font-weight:700;">Weight Settings</h3>
+    <button onclick="settingsModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div>
+      <label class="label">Goal Weight (lbs)</label>
+      <input type="number" id="sGoal" step="0.1" class="input" placeholder="e.g. 200" value="{{ goal_weight or '' }}" />
+    </div>
+    <div>
+      <label class="label">Height</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" id="sHeightFt" class="input" style="width:80px;" placeholder="ft" value="{{ (height_inches // 12)|int if height_inches else '' }}" min="3" max="8" />
+        <input type="number" id="sHeightIn" class="input" style="width:80px;" placeholder="in" value="{{ (height_inches % 12)|round(1) if height_inches else '' }}" min="0" max="11" step="0.5" />
+      </div>
+    </div>
+    <div>
+      <label class="label">Age</label>
+      <input type="number" id="sAge" class="input" placeholder="e.g. 25" value="{{ age or '' }}" min="10" max="100" />
+    </div>
+    <div>
+      <label class="label">Sex</label>
+      <select id="sSex" class="input">
+        <option value="">Select…</option>
+        <option value="male" {% if sex == 'male' %}selected{% endif %}>Male</option>
+        <option value="female" {% if sex == 'female' %}selected{% endif %}>Female</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveSettings()">Save</button>
+    <button class="btn btn-ghost" onclick="settingsModal.close()">Cancel</button>
+  </div>
+</dialog>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.range-btn {
+  padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: var(--text-2); transition: all .15s; letter-spacing: .04em; text-transform: uppercase;
+  font-family: inherit;
+}
+.range-btn.active { background: rgba(255,85,0,0.2); border-color: rgba(255,85,0,0.5); color: #ff5500; }
+.range-btn:hover:not(.active) { background: rgba(255,255,255,0.08); color: var(--text); }
+</style>
+<script>
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = chartColors().tick;
+
+function filterByRange(dates, values, range) {
+  if (range === 'all') return { dates, values };
+  const ms = { '1m': 30, '3m': 90, '6m': 180, '1y': 365 }[range] * 86400000;
+  const cutoff = Date.now() - ms;
+  const fd = [], fv = [];
+  dates.forEach((d, i) => { if (new Date(d).getTime() >= cutoff) { fd.push(d); fv.push(values[i]); } });
+  return { dates: fd, values: fv };
+}
+
+let editingWeightId = null;
+function editEntry(id, date, weight, unit) {
+  editingWeightId = id;
+  document.querySelector('#addModal h3').textContent = 'Edit Entry';
+  document.getElementById('pwDate').value = date;
+  document.getElementById('pwValue').value = weight;
+  document.getElementById('pwUnit').value = unit;
+  addModal.showModal();
+}
+async function saveWeight() {
+  const date   = document.getElementById('pwDate').value;
+  const weight = parseFloat(document.getElementById('pwValue').value);
+  const unit   = document.getElementById('pwUnit').value;
+  if (!date || isNaN(weight)) return alert('Please fill in all fields.');
+  if (editingWeightId) {
+    await fetch(`/weight/edit/${editingWeightId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date,weight,unit}) });
+    editingWeightId = null;
+    location.reload();
+    return;
+  }
+  const res = await fetch('/weight/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date,weight,unit}) });
+  const data = await res.json();
+  if (data.goal_reached) {
+    showWeightCelebration('Goal Reached! 🎯', `You hit your goal weight of ${weight} ${unit}!`);
+  } else if (data.new_low) {
+    showWeightCelebration('New Low! 🎉', `${weight} ${unit} is your lightest weigh-in yet.`);
+  } else {
+    location.reload();
+  }
+}
+function showWeightCelebration(title, message) {
+  const overlay = document.createElement('div');
+  overlay.style = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px;">${title}</div>
+      <div style="color:var(--text-3);font-size:13px;margin-bottom:16px;">${message}</div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;">Nice!</button>
+    </div>`;
+  overlay.querySelector('button').onclick = () => { overlay.remove(); location.reload(); };
+  document.body.appendChild(overlay);
+}
+async function deleteEntry(id) {
+  if (!confirm('Remove this entry?')) return;
+  await fetch(`/weight/delete/${id}`, { method:'POST' });
+  document.getElementById(`row-${id}`).remove();
+}
+{% if entries %}
+const allWtDates  = {{ entries | map(attribute='date') | list | reverse | list | tojson }};
+const allWtValues = {{ entries | map(attribute='weight') | list | reverse | list | tojson }};
+const goalWeight  = {{ goal_weight | tojson }};
+const wtUnit      = '{{ entries[0].unit }}';
+let wtChart = null;
+
+function buildWtChart(range) {
+  const { dates, values } = filterByRange(allWtDates, allWtValues, range);
+  const ctx = document.getElementById('weightChart').getContext('2d');
+  if (wtChart) wtChart.destroy();
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, 'rgba(255,85,0,0.2)');
+  grad.addColorStop(1, 'rgba(255,85,0,0)');
+  const ma7 = values.map((_, i) => {
+    const slice = values.slice(Math.max(0, i - 6), i + 1).filter(v => v !== null);
+    return slice.length ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length * 10) / 10 : null;
+  });
+  const datasets = [
+    { data: values, borderColor: '#ff5500', backgroundColor: grad,
+      fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2.5 },
+    { data: ma7, borderColor: '#f59e0b', backgroundColor: 'transparent',
+      fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 0, borderWidth: 2,
+      borderDash: [4, 3], label: '7-day avg' }
+  ];
+  if (goalWeight) {
+    datasets.push({
+      data: dates.map(() => goalWeight),
+      borderColor: '#f59e0b', backgroundColor: 'transparent',
+      borderWidth: 1.5, borderDash: [6, 4],
+      pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0, label: 'Goal'
+    });
+  }
+  wtChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => c.dataset.label === 'Goal' ? ` Goal: ${c.raw} ${wtUnit}` : ` ${c.raw} ${wtUnit}` },
+          backgroundColor: chartColors().tooltip, borderColor: 'rgba(255,85,0,0.3)', borderWidth: 1, padding: 10,
+          displayColors: false, filter: item => item.dataset.label !== 'Goal'
+        }
+      },
+      scales: {
+        x: { grid: { color: chartColors().grid }, ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 11 } } },
+        y: { grid: { color: chartColors().grid }, ticks: { callback: v => v + ' ' + wtUnit, font: { size: 11 } } }
+      }
+    },
+    plugins: [{
+      id: 'crosshair',
+      afterDraw(chart) {
+        if (!chart.tooltip._active?.length) return;
+        const x = chart.tooltip._active[0].element.x;
+        const { top, bottom } = chart.chartArea;
+        const ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.moveTo(x, top);
+        ctx2.lineTo(x, bottom);
+        ctx2.lineWidth = 1;
+        ctx2.strokeStyle = 'rgba(255,85,0,0.3)';
+        ctx2.setLineDash([4, 4]);
+        ctx2.stroke();
+        ctx2.restore();
+      }
+    }]
+  });
+}
+
+function setWtRange(range, btn) {
+  document.querySelectorAll('#wtRangeBtns .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildWtChart(range);
+}
+
+buildWtChart('all');
+{% endif %}
+
+async function saveSettings() {
+  const ft = parseFloat(document.getElementById('sHeightFt').value) || 0;
+  const inches = parseFloat(document.getElementById('sHeightIn').value) || 0;
+  const totalInches = ft * 12 + inches;
+  const goal = parseFloat(document.getElementById('sGoal').value);
+  const age  = parseInt(document.getElementById('sAge').value);
+  const sex  = document.getElementById('sSex').value;
+  const body = {};
+  if (goal) body.goal_weight = goal;
+  if (totalInches > 0) body.height_inches = totalInches;
+  if (age) body.age = age;
+  if (sex) body.sex = sex;
+  await fetch('/weight/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  location.reload();
+}
+</script>
+{% endblock %}

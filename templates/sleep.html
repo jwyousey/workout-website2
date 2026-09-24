@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Sleep — WorkoutTracker{% endblock %}
+{% block header_color %}#a855f7{% endblock %}{% block header_title %}Sleep{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
+  <div>
+    <h1 class="page-title">Sleep</h1>
+    <p class="page-sub">Track your sleep duration and quality</p>
+  </div>
+  <button onclick="editingSleepId=null;document.querySelector('#addModal h3').textContent='Log Sleep';addModal.showModal()" class="btn btn-primary">
+    <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    Log Sleep
+  </button>
+</div>
+
+{% if logs %}
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#8b5cf6;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Avg Duration</div>
+    {% if avg_duration %}
+    <div class="stat-num" style="color:#c4b5fd;">{{ avg_duration // 60 }}<span style="font-size:16px;font-weight:600;">h</span> {{ avg_duration % 60 }}<span style="font-size:16px;font-weight:600;">m</span></div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Avg Score</div>
+    {% if avg_quality %}
+    <div class="stat-num" style="color:#fcd34d;">{{ avg_quality }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">/ 100</span></div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:{% if weekly_debt and weekly_debt > 0 %}#ef4444{% else %}#10b981{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Weekly Debt</div>
+    {% if weekly_debt is not none %}
+    <div class="stat-num" style="color:{% if weekly_debt > 0 %}#fca5a5{% else %}#6ee7b7{% endif %};">
+      {% if weekly_debt > 0 %}+{% endif %}{{ weekly_debt }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">hr</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs 8hr/night target</div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#34d399;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Best Score</div>
+    {% if best_quality_log %}
+    <div class="stat-num" data-no-animate style="color:#6ee7b7;font-size:24px;">{{ best_quality_log.quality }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">/ 100</span></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ best_quality_log.date }}</div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:#818cf8;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Longest Sleep</div>
+    {% if longest_duration_log %}
+    <div class="stat-num" data-no-animate style="color:#c4b5fd;font-size:24px;">{{ longest_duration_log.duration_min // 60 }}<span style="font-size:16px;font-weight:600;">h</span> {{ longest_duration_log.duration_min % 60 }}<span style="font-size:16px;font-weight:600;">m</span></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ longest_duration_log.date }}</div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+</div>
+
+{% if weekly_stats %}
+<!-- This Week -->
+<div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:10px;">This Week ({{ weekly_stats[0].week_start }} – {{ weekly_stats[0].week_end }})</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#8b5cf6;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Avg Duration</div>
+    {% if weekly_stats[0].avg_duration %}
+    <div class="stat-num" style="color:#c4b5fd;">{{ weekly_stats[0].avg_duration // 60 }}<span style="font-size:16px;font-weight:600;">h</span> {{ weekly_stats[0].avg_duration % 60 }}<span style="font-size:16px;font-weight:600;">m</span></div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Avg Score</div>
+    {% if weekly_stats[0].avg_quality %}
+    <div class="stat-num" style="color:#fcd34d;">{{ weekly_stats[0].avg_quality }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">/ 100</span></div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:{% if weekly_stats[0].debt is not none and weekly_stats[0].debt > 0 %}#ef4444{% else %}#10b981{% endif %};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Sleep Debt</div>
+    {% if weekly_stats[0].debt is not none %}
+    <div class="stat-num" style="color:{% if weekly_stats[0].debt > 0 %}#fca5a5{% else %}#6ee7b7{% endif %};">
+      {% if weekly_stats[0].debt > 0 %}+{% endif %}{{ weekly_stats[0].debt }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">hr</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs 8hr/night target</div>
+    {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if chart_durations %}
+<!-- Chart -->
+<div class="card" style="margin-bottom:16px;padding:20px 20px 12px;">
+  <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:14px;">Sleep Duration (last 30 nights)</div>
+  <div style="position:relative;height:180px;">
+    <canvas id="sleepChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Log table -->
+<div class="card card-flush">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Duration</th>
+        <th>Score</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td style="font-weight:600;">{{ log.date }}</td>
+        <td>
+          {% if log.duration_min %}
+          <span style="color:#c4b5fd;font-weight:600;">{{ log.duration_min // 60 }}h {{ log.duration_min % 60 }}m</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if log.quality %}
+          <span style="color:{% if log.quality >= 80 %}#6ee7b7{% elif log.quality >= 60 %}#fcd34d{% else %}#fca5a5{% endif %};font-weight:700;">{{ log.quality }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button onclick="editSleep({{ log.id }}, '{{ log.date }}', {{ log.duration_min or 'null' }}, {{ log.quality or 'null' }})" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px 6px;border-radius:6px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="deleteSleep({{ log.id }})" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px 6px;border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;">
+  <svg style="width:48px;height:48px;color:var(--text-3);margin:0 auto 16px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+  <div style="font-size:18px;font-weight:700;margin-bottom:8px;">No sleep logged yet</div>
+  <div style="color:var(--text-3);font-size:14px;margin-bottom:20px;">Start tracking your sleep to see trends and stats.</div>
+  <button onclick="addModal.showModal()" class="btn btn-primary" style="margin:0 auto;">Log Your First Night</button>
+</div>
+{% endif %}
+
+<!-- Add Modal -->
+<dialog id="addModal" onclick="if(event.target===this)this.close()">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 style="font-size:17px;font-weight:700;">Log Sleep</h3>
+    <button onclick="addModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div>
+      <label class="label">Date</label>
+      <input type="date" id="sDate" class="input" data-local-today />
+    </div>
+    <div>
+      <label class="label">Duration</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" id="sHours" min="0" max="24" class="input" placeholder="hrs" style="width:80px;" />
+        <span style="color:var(--text-3);">h</span>
+        <input type="number" id="sMinutes" min="0" max="59" class="input" placeholder="min" style="width:80px;" />
+        <span style="color:var(--text-3);">m</span>
+      </div>
+    </div>
+    <div>
+      <label class="label">Sleep Score (0–100)</label>
+      <input type="number" id="sQuality" min="0" max="100" class="input" placeholder="e.g. 82" />
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveSleep()">Save</button>
+    <button class="btn btn-ghost" onclick="addModal.close()">Cancel</button>
+  </div>
+</dialog>
+
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('sDate').value = new Date().toISOString().split('T')[0];
+
+let editingSleepId = null;
+function editSleep(id, date, duration_min, quality) {
+  editingSleepId = id;
+  document.querySelector('#addModal h3').textContent = 'Edit Sleep';
+  document.getElementById('sDate').value = date;
+  document.getElementById('sHours').value = duration_min ? Math.floor(duration_min / 60) : '';
+  document.getElementById('sMinutes').value = duration_min ? duration_min % 60 : '';
+  document.getElementById('sQuality').value = quality || '';
+  addModal.showModal();
+}
+
+async function saveSleep() {
+  const date = document.getElementById('sDate').value;
+  const hours = parseInt(document.getElementById('sHours').value) || 0;
+  const minutes = parseInt(document.getElementById('sMinutes').value) || 0;
+  const quality = document.getElementById('sQuality').value;
+  if (!date) return alert('Please enter a date.');
+  const duration_min = hours * 60 + minutes || null;
+  const url = editingSleepId ? `/sleep/edit/${editingSleepId}` : '/sleep/add';
+  editingSleepId = null;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({date, duration_min, quality: quality ? parseInt(quality) : null})
+  });
+  if (res.ok) { addModal.close(); location.reload(); }
+  else { const err = await res.text(); alert('Error saving: ' + err); }
+}
+
+async function deleteSleep(id) {
+  if (!confirm('Delete this sleep log?')) return;
+  await fetch('/sleep/delete/' + id, {method: 'POST'});
+  location.reload();
+}
+
+{% if chart_durations %}
+const ctx = document.getElementById('sleepChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: {{ chart_labels | tojson }},
+    datasets: [
+      {
+        label: 'Duration (hrs)',
+        data: {{ chart_durations | tojson }},
+        backgroundColor: 'rgba(255,85,0,0.35)',
+        borderColor: '#ff5500',
+        borderWidth: 1.5,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Score',
+        data: {{ chart_qualities | tojson }},
+        type: 'line',
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#f59e0b',
+        tension: 0.3,
+        yAxisID: 'y2',
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { font: { size: 10 }, maxRotation: 45 },
+        grid: { color: chartColors().grid }
+      },
+      y: {
+        position: 'left',
+        min: 0, max: 12,
+        ticks: { font: { size: 10 }, callback: v => v + 'h' },
+        grid: { color: chartColors().grid }
+      },
+      y2: {
+        position: 'right',
+        min: 0, max: 100,
+        ticks: { color: '#f59e0b', font: { size: 10 }, stepSize: 20 },
+        grid: { display: false }
+      }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

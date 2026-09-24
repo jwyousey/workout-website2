@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Progress — WorkoutTracker{% endblock %}
+{% block header_color %}#3b82f6{% endblock %}{% block header_title %}Progress{% endblock %}
+{% block content %}
+
+<h1 class="page-title" style="margin-bottom:20px;">Progress</h1>
+
+{% if weight_data %}
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;">
+    <h2 style="font-size:15px;font-weight:700;">Body Weight</h2>
+    {% set first = weight_data[0] %}{% set last = weight_data[-1] %}
+    {% set diff = last.weight - first.weight %}
+    <span style="font-size:13px;font-weight:600;color:{% if diff < 0 %}#34d399{% else %}#f87171{% endif %};">
+      {% if diff < 0 %}▼{% else %}▲{% endif %} {{ diff | abs | round(1) }} lbs since {{ first.date | format_date }}
+    </span>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:12px;" id="wtRangeBtns">
+    <button class="range-btn active" onclick="setWtRange('all',this)">All</button>
+    <button class="range-btn" onclick="setWtRange('1y',this)">1Y</button>
+    <button class="range-btn" onclick="setWtRange('6m',this)">6M</button>
+    <button class="range-btn" onclick="setWtRange('3m',this)">3M</button>
+    <button class="range-btn" onclick="setWtRange('1m',this)">1M</button>
+  </div>
+  <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text-3);">
+    <span><span style="display:inline-block;width:16px;height:2px;background:#ff5500;vertical-align:middle;margin-right:4px;border-radius:1px;"></span>Weight</span>
+  </div>
+  <div style="position:relative;height:200px;"><canvas id="bodyWeightChart"></canvas></div>
+</div>
+{% endif %}
+
+{% if exercises %}
+<div class="card">
+  <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Lift Progress</h2>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+    <select id="exercisePicker" class="input" style="max-width:300px;" onchange="loadChart(this.value)">
+      <option value="">— select an exercise —</option>
+      {% for ex in exercises %}<option value="{{ ex.exercise_name }}">{{ ex.exercise_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div id="liftWrap" style="display:none;">
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+      <div style="display:flex;gap:6px;" id="liftRangeBtns">
+        <button class="range-btn active" onclick="setLiftRange('all',this)">All</button>
+        <button class="range-btn" onclick="setLiftRange('1y',this)">1Y</button>
+        <button class="range-btn" onclick="setLiftRange('6m',this)">6M</button>
+        <button class="range-btn" onclick="setLiftRange('3m',this)">3M</button>
+        <button class="range-btn" onclick="setLiftRange('1m',this)">1M</button>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <button class="range-btn active" id="btnMaxWeight" onclick="setLiftMetric('max_weight')">Max Weight</button>
+        <button class="range-btn" id="btnE1rm" onclick="setLiftMetric('e1rm')">Est. 1RM</button>
+      </div>
+    </div>
+    <div style="position:relative;height:220px;"><canvas id="liftChart"></canvas></div>
+  </div>
+  <p id="liftEmpty" style="text-align:center;color:var(--text-3);font-size:14px;padding:28px 0;">Select an exercise to see its progress chart.</p>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:64px;">
+  <div style="margin-bottom:12px;"><svg style="width:48px;height:48px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div>
+  <p style="color:var(--text-3);">Log some workouts to see progress charts here.</p>
+  <a href="/workouts/new" class="btn btn-primary" style="margin-top:16px;">Log a Workout</a>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+.range-btn {
+  padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: var(--text-2); transition: all .15s; letter-spacing: .04em; text-transform: uppercase;
+  font-family: inherit;
+}
+.range-btn.active { background: rgba(255,85,0,0.2); border-color: rgba(255,85,0,0.5); color: #ff5500; }
+.range-btn:hover:not(.active) { background: rgba(255,255,255,0.08); color: var(--text); }
+</style>
+<script>
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+const _cc = chartColors();
+Chart.defaults.color = _cc.tick;
+const gridColor = _cc.grid;
+
+function filterByRange(dates, values, range) {
+  if (range === 'all') return { dates, values };
+  const ms = { '1m': 30, '3m': 90, '6m': 180, '1y': 365 }[range] * 86400000;
+  const cutoff = Date.now() - ms;
+  const fd = [], fv = [];
+  dates.forEach((d, i) => { if (new Date(d).getTime() >= cutoff) { fd.push(d); fv.push(values[i]); } });
+  return { dates: fd, values: fv };
+}
+
+{% if weight_data %}
+const allWtDates  = {{ weight_data | map(attribute='date') | list | tojson }};
+const allWtValues = {{ weight_data | map(attribute='weight') | list | tojson }};
+let wtRange = '1m';
+let wtChart = null;
+
+function buildWtChart(range) {
+  const { dates, values } = filterByRange(allWtDates, allWtValues, range);
+  const ctx = document.getElementById('bodyWeightChart').getContext('2d');
+  if (wtChart) wtChart.destroy();
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, 'rgba(255,85,0,0.15)');
+  grad.addColorStop(1, 'rgba(255,85,0,0)');
+  wtChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets: [{ data: values, borderColor: '#ff5500', backgroundColor: grad,
+      fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => ` ${c.raw} lbs` },
+          backgroundColor: _cc.tooltip, borderColor: 'rgba(255,85,0,0.3)', borderWidth: 1, padding: 10,
+          displayColors: false
+        },
+        crosshair: false
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { maxTicksLimit: window.innerWidth < 500 ? 4 : 8, maxRotation: window.innerWidth < 500 ? 45 : 0, minRotation: window.innerWidth < 500 ? 45 : 0 } },
+        y: { grid: { color: gridColor }, ticks: { callback: v => v + ' lbs' } }
+      }
+    },
+    plugins: [{
+      id: 'crosshair',
+      afterDraw(chart) {
+        if (!chart.tooltip._active?.length) return;
+        const x = chart.tooltip._active[0].element.x;
+        const { top, bottom } = chart.chartArea;
+        const ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.moveTo(x, top);
+        ctx2.lineTo(x, bottom);
+        ctx2.lineWidth = 1;
+        ctx2.strokeStyle = 'rgba(255,85,0,0.3)';
+        ctx2.setLineDash([4, 4]);
+        ctx2.stroke();
+        ctx2.restore();
+      }
+    }]
+  });
+}
+function setWtRange(range, btn) {
+  wtRange = range;
+  document.querySelectorAll('#wtRangeBtns .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildWtChart(range);
+}
+buildWtChart('all');
+{% endif %}
+
+let allLiftRows = [];
+let liftRange = '1m';
+let liftMetric = 'max_weight';
+let liftChart = null;
+
+function buildLiftChart() {
+  const unit = allLiftRows[0]?.unit || 'lbs';
+  const allDates = allLiftRows.map(r => r.date);
+  const allVals  = allLiftRows.map(r => liftMetric === 'e1rm' ? Math.round(r.e1rm * 10) / 10 : r.max_weight);
+  const { dates, values } = filterByRange(allDates, allVals, liftRange);
+  const ctx = document.getElementById('liftChart').getContext('2d');
+  if (liftChart) liftChart.destroy();
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, 'rgba(255,85,0,0.15)');
+  grad.addColorStop(1, 'rgba(255,85,0,0)');
+  const label = liftMetric === 'e1rm' ? 'Est. 1RM' : 'Max Weight';
+  liftChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets: [{ data: values, borderColor: '#ff5500', backgroundColor: grad,
+      fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5, label }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => ` ${c.raw} ${unit}` },
+          backgroundColor: _cc.tooltip, borderColor: 'rgba(255,85,0,0.3)', borderWidth: 1, padding: 10,
+          displayColors: false
+        }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { maxTicksLimit: window.innerWidth < 500 ? 4 : 8, maxRotation: window.innerWidth < 500 ? 45 : 0, minRotation: window.innerWidth < 500 ? 45 : 0 } },
+        y: { grid: { color: gridColor }, ticks: { callback: v => v + ' ' + unit } }
+      }
+    },
+    plugins: [{
+      id: 'crosshair',
+      afterDraw(chart) {
+        if (!chart.tooltip._active?.length) return;
+        const x = chart.tooltip._active[0].element.x;
+        const { top, bottom } = chart.chartArea;
+        const ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.moveTo(x, top);
+        ctx2.lineTo(x, bottom);
+        ctx2.lineWidth = 1;
+        ctx2.strokeStyle = 'rgba(255,85,0,0.3)';
+        ctx2.setLineDash([4, 4]);
+        ctx2.stroke();
+        ctx2.restore();
+      }
+    }, {
+      id: 'prStar',
+      afterDatasetsDraw(chart) {
+        const vals = chart.data.datasets[0]?.data;
+        if (!vals || !vals.length) return;
+        const maxVal = Math.max(...vals.filter(v => v !== null));
+        const maxIdx = vals.lastIndexOf(maxVal);
+        if (maxIdx < 0) return;
+        const meta = chart.getDatasetMeta(0);
+        const pt = meta.data[maxIdx];
+        if (!pt) return;
+        const { x, y } = pt;
+        const ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.font = 'bold 18px sans-serif';
+        ctx2.textAlign = 'center';
+        ctx2.fillStyle = '#fcd34d';
+        ctx2.shadowColor = 'rgba(252,211,77,0.6)';
+        ctx2.shadowBlur = 6;
+        ctx2.fillText('★', x, y - 12);
+        ctx2.restore();
+      }
+    }]
+  });
+}
+
+function setLiftRange(range, btn) {
+  liftRange = range;
+  document.querySelectorAll('#liftRangeBtns .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildLiftChart();
+}
+
+function setLiftMetric(metric) {
+  liftMetric = metric;
+  document.getElementById('btnMaxWeight').classList.toggle('active', metric === 'max_weight');
+  document.getElementById('btnE1rm').classList.toggle('active', metric === 'e1rm');
+  buildLiftChart();
+}
+
+async function loadChart(name) {
+  const wrap = document.getElementById('liftWrap');
+  const empty = document.getElementById('liftEmpty');
+  if (!name) { wrap.style.display='none'; empty.style.display='block'; return; }
+  let rows;
+  try {
+    const res = await fetch(`/api/progress/${encodeURIComponent(name)}`, { credentials: 'same-origin' });
+    const text = await res.text();
+    if (!res.ok) { empty.textContent = `Error ${res.status}: ${text.slice(0,100)}`; empty.style.display='block'; wrap.style.display='none'; return; }
+    rows = JSON.parse(text);
+  } catch(e) {
+    empty.textContent = `Error: ${e.message}`; empty.style.display='block'; wrap.style.display='none'; return;
+  }
+  if (!rows.length) { wrap.style.display='none'; empty.textContent='No weighted sets logged for this exercise yet.'; empty.style.display='block'; return; }
+  allLiftRows = rows;
+  liftRange = 'all';
+  document.querySelectorAll('#liftRangeBtns .range-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  wrap.style.display='block'; empty.style.display='none';
+  buildLiftChart();
+}
+</script>
+{% endblock %}

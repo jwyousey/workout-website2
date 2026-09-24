@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}Edit Workout — WorkoutTracker{% endblock %}
+{% block header_title %}Edit Workout{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+  <a href="/workouts/{{ workout.id }}" style="color:var(--text-3);display:flex;align-items:center;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+    <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <h1 class="page-title">Edit Workout</h1>
+</div>
+
+<!-- Workout info -->
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <label class="label">Date</label>
+      <input type="date" id="workoutDate" class="input" value="{{ workout.date }}" />
+    </div>
+    <div>
+      <label class="label">Workout Name</label>
+      <input type="text" id="workoutNameCustom" class="input" value="{{ workout.name or '' }}" placeholder="Workout name" />
+    </div>
+  </div>
+  <div style="margin-top:12px;">
+    <label class="label">Notes</label>
+    <textarea id="workoutNotes" class="input" rows="2" style="resize:vertical;">{{ workout.notes or '' }}</textarea>
+  </div>
+</div>
+
+<!-- Exercises -->
+<div id="exercises" style="display:flex;flex-direction:column;gap:0;"></div>
+
+<button onclick="addExercise()" style="margin-top:12px;width:100%;padding:12px;background:rgba(255,255,255,0.04);border:1.5px dashed rgba(255,255,255,0.12);border-radius:10px;color:var(--text-3);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;" onmouseover="this.style.background='rgba(255,255,255,0.07)';this.style.color='var(--text)'" onmouseout="this.style.background='rgba(255,255,255,0.04)';this.style.color='var(--text-3)'">
+  + Add Exercise
+</button>
+
+<div style="display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label class="label" style="margin:0;white-space:nowrap;">Duration <span style="color:var(--text-3);font-weight:400;">(min)</span></label>
+    <input type="number" id="durationMin" class="input" style="width:80px;text-align:center;" placeholder="—" min="1" inputmode="numeric" value="{{ workout.duration_min or '' }}" />
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <label class="label" style="margin:0;white-space:nowrap;">Rating</label>
+    <div id="ratingStars" style="display:flex;gap:2px;">
+      {% for i in range(1, 6) %}
+      <button type="button" onclick="setRating({{ i }})" class="rating-star" data-val="{{ i }}" style="border:none;background:transparent;cursor:pointer;font-size:20px;color:{% if workout.rating and i <= workout.rating %}#fcd34d{% else %}var(--text-3){% endif %};padding:0 1px;transition:color .1s;">★</button>
+      {% endfor %}
+    </div>
+    <input type="hidden" id="workoutRating" value="{{ workout.rating or '' }}" />
+  </div>
+</div>
+
+<button onclick="saveWorkout()" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;padding:13px;font-size:15px;">
+  Save Changes
+</button>
+
+<template id="exTpl">
+  <div class="card exercise-block" style="padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <select class="input ex-muscle-group" style="flex:1;" onchange="filterExercisesByGroup(this)">
+        <option value="">— all muscle groups —</option>
+      </select>
+      <button onclick="this.closest('.exercise-block').remove()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;flex-shrink:0;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+        <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div style="margin-bottom:6px;">
+      <select class="input ex-name" style="width:100%;" onchange="handleExSelect(this)">
+        <option value="">— select exercise —</option>
+        {% for ex in exercise_bank %}<option value="{{ ex.name }}" data-group="{{ ex.muscle_group or 'Other' }}">{{ ex.name }}</option>{% endfor %}
+        <option value="__other__">Other (type new)</option>
+      </select>
+    </div>
+    <div class="ex-note-wrap" style="margin-bottom:10px;">
+      <input type="text" class="input ex-note" placeholder="Exercise note (optional)" style="font-size:12px;padding:6px 10px;color:var(--text-2);" />
+    </div>
+    <!-- Set header -->
+    <div style="display:grid;grid-template-columns:20px 1fr 1fr 50px 44px 24px 20px;gap:6px;margin-bottom:6px;padding:0 2px;">
+      <span></span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Reps</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Weight</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Unit</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;">Effort</span>
+      <span style="font-size:9px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;text-align:center;">W</span>
+      <span></span>
+    </div>
+    <div class="sets-container" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <button onclick="addSet(this)" style="margin-top:10px;background:transparent;border:none;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;font-family:inherit;" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">+ Add Set</button>
+  </div>
+</template>
+
+<template id="setTpl">
+  <div class="set-row" style="display:grid;grid-template-columns:20px 1fr 1fr 50px 44px 24px 20px;gap:6px;align-items:center;">
+    <span class="set-num" style="font-size:12px;font-weight:600;color:var(--text-3);text-align:center;"></span>
+    <input type="number" placeholder="0" class="input set-reps" style="padding:8px;font-size:14px;text-align:center;" min="1" inputmode="numeric" />
+    <input type="number" placeholder="0" class="input set-weight" style="padding:8px;font-size:14px;text-align:center;" min="0" step="0.5" inputmode="decimal" />
+    <select class="input set-unit" style="padding:4px 2px;font-size:12px;">
+      <option>lbs</option>
+      <option>kg</option>
+    </select>
+    <input type="number" placeholder="—" class="input set-rpe" style="padding:4px;font-size:13px;text-align:center;" min="1" max="10" step="0.5" inputmode="decimal" />
+    <button type="button" class="warmup-btn" onclick="toggleWarmup(this)" title="Toggle warm-up set" style="border:1px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;color:var(--text-3);padding:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;width:24px;height:24px;font-family:inherit;transition:all .15s;">W</button>
+    <button onclick="this.closest('.set-row').remove();renumberSets(this)" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:2px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+</template>
+
+
+{% endblock %}
+{% block scripts %}
+<style>
+.ss-link-btn {
+  display:flex;align-items:center;justify-content:center;gap:4px;margin:4px auto;padding:3px 10px;
+  border:1px dashed var(--border);border-radius:12px;background:transparent;color:var(--text-3);
+  font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;
+  text-transform:uppercase;letter-spacing:.05em;
+}
+.ss-link-btn:hover { border-color:var(--accent);color:var(--accent); }
+.ss-link-btn.active { border-color:#8b5cf6;color:#8b5cf6;background:rgba(139,92,246,.08);border-style:solid; }
+.exercise-block { margin-top:12px; }
+.exercise-block.ss-grouped { border-color:#8b5cf6 !important;border-left:3px solid #8b5cf6 !important; }
+</style>
+<script>
+const exTpl = document.getElementById('exTpl');
+const setTpl = document.getElementById('setTpl');
+const EXERCISE_BANK = {{ exercise_bank_json | safe }};
+const MUSCLE_GROUPS = Object.keys(EXERCISE_BANK).sort();
+const EXISTING_EXERCISES = {{ exercises_json | safe }};
+
+function populateMuscleGroupDropdown(sel) {
+  MUSCLE_GROUPS.forEach(mg => {
+    const opt = new Option(mg, mg);
+    sel.appendChild(opt);
+  });
+}
+
+function filterExercisesByGroup(mgSel) {
+  const block = mgSel.closest('.exercise-block');
+  const exSel = block.querySelector('.ex-name');
+  const selectedGroup = mgSel.value;
+  const currentVal = exSel.value;
+
+  for (const opt of exSel.options) {
+    if (!opt.value || opt.value === '__other__') continue;
+    const group = opt.dataset.group;
+    opt.hidden = selectedGroup ? group !== selectedGroup : false;
+  }
+
+  const currentOpt = exSel.querySelector(`option[value="${CSS.escape(currentVal)}"]`);
+  if (currentOpt && currentOpt.hidden) exSel.value = '';
+}
+
+function getWorkoutName() {
+  return document.getElementById('workoutNameCustom').value.trim();
+}
+
+function handleExSelect(sel) {
+  if (sel.value !== '__other__') return;
+  const name = prompt('Enter exercise name:');
+  if (!name) { sel.value = ''; return; }
+  const opt = new Option(name, name, true, true);
+  sel.insertBefore(opt, sel.lastElementChild);
+  sel.value = name;
+  fetch('/exercises/add', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    credentials: 'same-origin',
+    body: JSON.stringify({name, muscle_group: 'Other'})
+  });
+}
+
+function getExName(block) {
+  return block.querySelector('.ex-name').value;
+}
+
+function addExercise(name = '') {
+  const block = exTpl.content.cloneNode(true).querySelector('.exercise-block');
+  populateMuscleGroupDropdown(block.querySelector('.ex-muscle-group'));
+  if (name) {
+    const exSel = block.querySelector('.ex-name');
+    let opt = exSel.querySelector(`option[value="${CSS.escape(name)}"]`);
+    if (!opt) {
+      opt = new Option(name, name, true, true);
+      exSel.insertBefore(opt, exSel.lastElementChild);
+    }
+    exSel.value = name;
+  }
+  document.getElementById('exercises').appendChild(block);
+  return block;
+}
+
+function addSet(btn) {
+  const container = btn.closest('.exercise-block').querySelector('.sets-container');
+  const row = setTpl.content.cloneNode(true).querySelector('.set-row');
+  container.appendChild(row);
+  renumberSets(container);
+  return row;
+}
+
+function renumberSets(el) {
+  const container = el.closest ? el.closest('.exercise-block')?.querySelector('.sets-container') : el;
+  if (!container) return;
+  container.querySelectorAll('.set-num').forEach((s, i) => s.textContent = i + 1);
+}
+
+function addExerciseWithSets(name, sets, note) {
+  const block = addExercise(name);
+  if (note) { const ni = block.querySelector('.ex-note'); if (ni) ni.value = note; }
+  const addBtn = block.querySelector('[onclick="addSet(this)"]');
+  for (const s of sets) {
+    const row = addSet(addBtn);
+    row.querySelector('.set-reps').value = s.reps ?? '';
+    row.querySelector('.set-weight').value = s.weight ?? '';
+    row.querySelector('.set-unit').value = s.unit || 'lbs';
+    row.querySelector('.set-rpe').value = s.rpe ?? '';
+    if (s.is_warmup) {
+      const wb = row.querySelector('.warmup-btn');
+      if (wb) { wb.classList.add('active'); wb.style.background='rgba(245,158,11,.15)'; wb.style.borderColor='#f59e0b'; wb.style.color='#f59e0b'; }
+    }
+  }
+}
+
+function toggleWarmup(btn) {
+  btn.classList.toggle('active');
+  if (btn.classList.contains('active')) {
+    btn.style.background = 'rgba(245,158,11,.15)';
+    btn.style.borderColor = '#f59e0b';
+    btn.style.color = '#f59e0b';
+  } else {
+    btn.style.background = 'transparent';
+    btn.style.borderColor = '';
+    btn.style.color = 'var(--text-3)';
+  }
+}
+
+function setRating(val) {
+  const input = document.getElementById('workoutRating');
+  const current = parseInt(input.value);
+  input.value = current === val ? '' : val;
+  document.querySelectorAll('.rating-star').forEach(s => {
+    s.style.color = parseInt(s.dataset.val) <= (parseInt(input.value) || 0) ? '#fcd34d' : 'var(--text-3)';
+  });
+}
+
+async function saveWorkout() {
+  const exercises = [];
+  for (const block of document.querySelectorAll('.exercise-block')) {
+    const name = (block.querySelector('.ex-name').value || '').trim();
+    if (!name) continue;
+    const sets = [];
+    for (const row of block.querySelectorAll('.set-row')) {
+      sets.push({
+        reps: parseInt(row.querySelector('.set-reps').value) || null,
+        weight: parseFloat(row.querySelector('.set-weight').value) || null,
+        unit: row.querySelector('.set-unit').value,
+        rpe: parseFloat(row.querySelector('.set-rpe').value) || null,
+        is_warmup: row.querySelector('.warmup-btn')?.classList.contains('active') || false,
+        completed: true,
+      });
+    }
+    const sg = parseInt(block.dataset.supersetGroup) || null;
+    const note = (block.querySelector('.ex-note')?.value || '').trim();
+    if (sets.length) exercises.push({ name, sets, superset_group: sg, note });
+  }
+  if (!exercises.length) return alert('Add at least one exercise with sets.');
+  const payload = {
+    date: document.getElementById('workoutDate').value,
+    name: getWorkoutName(),
+    notes: document.getElementById('workoutNotes').value,
+    duration_min: parseInt(document.getElementById('durationMin').value) || null,
+    rating: parseInt(document.getElementById('workoutRating').value) || null,
+    exercises,
+  };
+  const res = await fetch('/workouts/{{ workout.id }}/edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  window.location.href = `/workouts/${data.id}`;
+}
+
+let nextSSGroup = 1;
+
+function insertSupersetBtn(block) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ss-link-btn';
+  btn.innerHTML = '<svg style="width:10px;height:10px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Superset';
+  btn.onclick = () => toggleSuperset(btn);
+  block.before(btn);
+}
+
+function toggleSuperset(btn) {
+  const blocks = [...document.querySelectorAll('#exercises .exercise-block')];
+  const btns = [...document.querySelectorAll('#exercises .ss-link-btn')];
+  const idx = btns.indexOf(btn);
+  const above = blocks[idx];
+  const below = blocks[idx + 1];
+  if (!above || !below) return;
+
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    btn.innerHTML = '<svg style="width:10px;height:10px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Superset';
+    above.classList.remove('ss-grouped');
+    below.classList.remove('ss-grouped');
+    delete above.dataset.supersetGroup;
+    delete below.dataset.supersetGroup;
+  } else {
+    const group = above.dataset.supersetGroup || below.dataset.supersetGroup || String(nextSSGroup++);
+    btn.classList.add('active');
+    btn.innerHTML = '<svg style="width:10px;height:10px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Linked';
+    above.dataset.supersetGroup = group;
+    below.dataset.supersetGroup = group;
+    above.classList.add('ss-grouped');
+    below.classList.add('ss-grouped');
+  }
+}
+
+const _origAddExercise = addExercise;
+addExercise = function(name) {
+  const block = _origAddExercise(name);
+  const exContainer = document.getElementById('exercises');
+  const blocks = exContainer.querySelectorAll('.exercise-block');
+  if (blocks.length > 1) {
+    insertSupersetBtn(block);
+  }
+  return block;
+};
+
+const _origAddWithSets = addExerciseWithSets;
+addExerciseWithSets = function(name, sets, note, ssGroup) {
+  const block = _origAddWithSets(name, sets, note);
+  if (ssGroup) {
+    block.dataset.supersetGroup = ssGroup;
+    block.classList.add('ss-grouped');
+    if (ssGroup >= nextSSGroup) nextSSGroup = ssGroup + 1;
+  }
+  return block;
+};
+
+EXISTING_EXERCISES.forEach(ex => addExerciseWithSets(ex.name, ex.sets, ex.note, ex.superset_group));
+
+// Activate superset buttons for pre-linked exercises
+setTimeout(() => {
+  const blocks = [...document.querySelectorAll('#exercises .exercise-block')];
+  const btns = [...document.querySelectorAll('#exercises .ss-link-btn')];
+  btns.forEach((btn, idx) => {
+    const above = blocks[idx];
+    const below = blocks[idx + 1];
+    if (above?.dataset.supersetGroup && below?.dataset.supersetGroup && above.dataset.supersetGroup === below.dataset.supersetGroup) {
+      btn.classList.add('active');
+      btn.innerHTML = '<svg style="width:10px;height:10px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>Linked';
+    }
+  });
+}, 0);
+</script>
+{% endblock %}

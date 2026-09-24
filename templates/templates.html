@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Templates — WorkoutTracker{% endblock %}
+{% block header_title %}Templates{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
+  <h1 class="page-title">Templates</h1>
+  <button onclick="openModal()" class="btn btn-primary">
+    <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    New Template
+  </button>
+</div>
+
+{% if templates %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  {% for t in templates %}
+  {% set tc = t.name | workout_type_class %}
+  {% set bar = '#3b82f6' if 'push' in tc else '#10b981' if 'pull' in tc else '#f59e0b' if 'legs' in tc else '#8b5cf6' if 'chest' in tc else '#ec4899' if 'shoulder' in tc or 'arms' in tc else '#6366f1' %}
+  {% set bg  = 'rgba(59,130,246,.12)' if 'push' in tc else 'rgba(16,185,129,.12)' if 'pull' in tc else 'rgba(245,158,11,.12)' if 'legs' in tc else 'rgba(139,92,246,.12)' if 'chest' in tc else 'rgba(236,72,153,.12)' if 'shoulder' in tc or 'arms' in tc else 'rgba(99,102,241,.12)' %}
+  <div id="tcard-{{ t.id }}" style="background:var(--card);border:1px solid rgba(255,255,255,0.07);border-radius:4px;overflow:hidden;display:flex;flex-direction:column;">
+    <!-- Accent bar + header -->
+    <div style="height:4px;background:{{ bar }};"></div>
+    <div style="padding:12px 14px 10px;background:{{ bg }};">
+      <div style="font-size:15px;font-weight:700;color:var(--text);">{{ t.name }}</div>
+      {% if t.description %}<div style="font-size:12px;color:var(--text-3);margin-top:2px;">{{ t.description }}</div>{% endif %}
+    </div>
+    <!-- Exercise list -->
+    {% set exs = exercises[t.id] %}
+    {% if exs %}
+    <div style="padding:10px 14px;flex:1;">
+      {% for ex in exs %}
+      <div style="font-size:13px;color:var(--text-2);line-height:1.7;">
+        {{ loop.index }}-{{ ex.exercise_name }}
+        {% if ex.sets %}<span style="color:var(--text-3);"> {{ ex.sets }}×{% if ex.reps %}{{ ex.reps }}{% endif %}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <!-- Actions -->
+    <div style="display:flex;gap:6px;padding:10px 14px 12px;border-top:1px solid rgba(255,255,255,0.06);">
+      <a href="/workouts/new?template={{ t.id }}" class="btn btn-primary" style="flex:1;justify-content:center;padding:7px;font-size:13px;">Use</a>
+      <button onclick="editTemplate({{ t.id }})" class="btn btn-ghost" style="padding:7px 12px;font-size:13px;">Edit</button>
+      <button onclick="deleteTemplate({{ t.id }})" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:7px 8px;transition:color .15s;border-radius:8px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:64px;">
+  <div style="margin-bottom:12px;"><svg style="width:48px;height:48px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+  <p style="color:var(--text-3);">No templates yet. Create one to speed up logging.</p>
+  <button onclick="openModal()" class="btn btn-primary" style="margin-top:16px;">Create Template</button>
+</div>
+{% endif %}
+
+<!-- Modal -->
+<dialog id="tplModal" onclick="if(event.target===this)this.close()" style="width:500px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <h3 style="font-size:17px;font-weight:700;" id="modalTitle">New Template</h3>
+    <button onclick="tplModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <input type="hidden" id="tplId" />
+  <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+    <div><label class="label">Name</label><input type="text" id="tplName" class="input" placeholder="e.g. Push Day" /></div>
+    <div><label class="label">Description (optional)</label><input type="text" id="tplDesc" class="input" placeholder="e.g. Chest, Shoulders, Triceps" /></div>
+  </div>
+  <div style="margin-bottom:12px;">
+    <label class="label" style="margin-bottom:8px;">Exercises</label>
+    <div id="tplExercises" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+    <button onclick="addTplEx()" style="border:none;background:transparent;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;padding:0;font-family:inherit;">+ Add Exercise</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveTemplate()">Save Template</button>
+    <button class="btn btn-ghost" onclick="tplModal.close()">Cancel</button>
+  </div>
+</dialog>
+
+<template id="tplExTpl">
+  <div style="display:flex;gap:6px;align-items:center;" class="tpl-ex-row">
+    <input type="text" placeholder="Exercise name" class="input tpl-ex-name" style="flex:1;" list="exList" />
+    <input type="number" placeholder="Sets" class="input tpl-ex-sets" style="width:64px;" min="1" />
+    <input type="number" placeholder="Reps" class="input tpl-ex-reps" style="width:64px;" min="1" />
+    <button onclick="this.closest('.tpl-ex-row').remove()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;transition:color .15s;flex-shrink:0;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+</template>
+
+<datalist id="exList">
+  {% for ex in exercise_bank %}<option>{{ ex.name }}</option>{% endfor %}
+</datalist>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id='', name='', desc='') {
+  document.getElementById('tplId').value = id;
+  document.getElementById('tplName').value = name;
+  document.getElementById('tplDesc').value = desc;
+  document.getElementById('modalTitle').textContent = id ? 'Edit Template' : 'New Template';
+  document.getElementById('tplExercises').innerHTML = '';
+  tplModal.showModal();
+}
+
+async function editTemplate(id) {
+  const res = await fetch(`/api/template/${id}`, { credentials: 'same-origin' });
+  const data = await res.json();
+  openModal(id, data.template.name, data.template.description || '');
+  for (const ex of data.exercises) addTplEx(ex.exercise_name, ex.sets, ex.reps);
+}
+
+function addTplEx(name='', sets='', reps='') {
+  const row = document.getElementById('tplExTpl').content.cloneNode(true).querySelector('.tpl-ex-row');
+  row.querySelector('.tpl-ex-name').value = name;
+  row.querySelector('.tpl-ex-sets').value = sets;
+  row.querySelector('.tpl-ex-reps').value = reps;
+  document.getElementById('tplExercises').appendChild(row);
+}
+
+async function saveTemplate() {
+  const id = document.getElementById('tplId').value;
+  const name = document.getElementById('tplName').value.trim();
+  if (!name) return alert('Name is required.');
+  const exercises = [...document.querySelectorAll('.tpl-ex-row')].map(r => ({
+    name: r.querySelector('.tpl-ex-name').value.trim(),
+    sets: parseInt(r.querySelector('.tpl-ex-sets').value) || null,
+    reps: parseInt(r.querySelector('.tpl-ex-reps').value) || null,
+  })).filter(e => e.name);
+  await fetch('/templates/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id || null, name, description: document.getElementById('tplDesc').value, exercises }),
+  });
+  location.reload();
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  await fetch(`/templates/${id}/delete`, { method: 'POST' });
+  document.getElementById(`tcard-${id}`).remove();
+}
+</script>
+{% endblock %}

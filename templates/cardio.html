@@ -1,0 +1,1046 @@
+{% extends "base.html" %}
+{% block title %}Cardio — WorkoutTracker{% endblock %}
+{% block header_color %}#f59e0b{% endblock %}{% block header_title %}Cardio{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px;">
+  <h1 class="page-title">Cardio</h1>
+  <div style="display:flex;gap:8px;">
+    {% if sessions %}
+    <button onclick="repeatLast()" class="btn btn-ghost">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"/></svg>
+      Repeat Last
+    </button>
+    {% endif %}
+    <button onclick="openAddModal()" class="btn btn-primary">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      Log Cardio
+    </button>
+  </div>
+</div>
+
+<!-- Category tabs -->
+<div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;" id="cardioTabs">
+  <button class="range-btn active" onclick="filterTab('all',this)">All</button>
+  <button class="range-btn" onclick="filterTab('Run',this)">Run</button>
+  <button class="range-btn" onclick="filterTab('Walk',this)">Walk</button>
+  <button class="range-btn" onclick="filterTab('Incline Walk',this)">Incline</button>
+  <button class="range-btn" onclick="filterTab('machines',this)">Machines</button>
+  <button class="range-btn" onclick="filterTab('sports',this)">Sports</button>
+</div>
+
+<!-- All-tab content: stats, goal, charts -->
+<div id="allTabContent">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+    <div class="stat-card" style="--stat-accent:#f59e0b;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">This Week</div>
+      <div class="stat-num" style="color:#fcd34d;">{{ week_stats.sessions }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">sessions</span></div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ week_stats.minutes | int }} min</div>
+    </div>
+    <div class="stat-card" style="--stat-accent:#f59e0b;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">This Month</div>
+      <div class="stat-num" style="color:#fcd34d;">{{ month_stats.sessions }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">sessions</span></div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px;">{{ month_stats.minutes | int }} min</div>
+    </div>
+    <div class="stat-card" style="--stat-accent:#10b981;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Most Calories</div>
+      <div class="stat-num" style="color:#6ee7b7;">
+        {% if cardio_prs.most_calories %}{{ cardio_prs.most_calories.calories }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">cal</span>{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-card" style="--stat-accent:#8b5cf6;margin-bottom:16px;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Year to Date</div>
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+      <span class="stat-num" style="color:#c4b5fd;">{{ year_stats.sessions }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">sessions</span></span>
+      <span style="font-size:13px;color:var(--text-3);">{{ year_stats.minutes | int }} min</span>
+      <span style="font-size:13px;color:var(--text-3);">{{ "%.1f"|format(year_stats.distance) }} mi</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;padding:16px 20px;">
+    {% set goal_min = 150 %}
+    {% set week_min = week_stats.minutes %}
+    {% set goal_pct = [[week_min / goal_min * 100, 0] | max, 100] | min | round(1) %}
+    {% set at_goal = week_min >= goal_min %}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:13px;font-weight:700;color:var(--text-2);">Weekly Goal</span>
+      <span style="font-size:12px;font-weight:600;color:{% if at_goal %}#6ee7b7{% else %}#fcd34d{% endif %};">
+        {% if at_goal %}Goal reached!{% else %}{{ (goal_min - week_min) | int }} min to go{% endif %}
+      </span>
+    </div>
+    <div style="position:relative;height:12px;background:var(--chart-grid);border-radius:6px;overflow:visible;margin-bottom:8px;">
+      <div style="height:100%;width:{{ goal_pct }}%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:6px;transition:width 1s ease;min-width:4px;"></div>
+      {% if not at_goal %}
+      <div style="position:absolute;top:-4px;left:calc({{ goal_pct }}% - 8px);width:16px;height:16px;border-radius:50%;border:2px solid #f59e0b;background:var(--surface2);box-shadow:0 0 8px rgba(245,158,11,.5);"></div>
+      {% endif %}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">
+      <span>{{ week_min | int }} min</span>
+      <span style="font-weight:700;color:{% if at_goal %}#6ee7b7{% else %}var(--text-2){% endif %};">{{ goal_pct }}%</span>
+      <span>{{ goal_min }} min <span style="opacity:.6;">(goal)</span></span>
+    </div>
+    {% if goal_streak > 0 %}
+    <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <span style="font-size:20px;font-weight:800;color:#fcd34d;">{{ goal_streak }}</span>
+      <span style="font-size:12px;color:var(--text-3);">week{{ 's' if goal_streak != 1 }} in a row hitting 150 min</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if chart_minutes and chart_minutes | sum > 0 or chart_dist_values %}
+  <div class="card" style="margin-bottom:16px;padding:16px 16px 12px;">
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button class="range-btn active" id="ctab-min" onclick="showCardioTab('min',this)">Weekly Mins</button>
+      {% if chart_dist_values %}<button class="range-btn" id="ctab-dist" onclick="showCardioTab('dist',this)">Distance</button>{% endif %}
+      {% if chart_dur_values %}<button class="range-btn" id="ctab-dur" onclick="showCardioTab('dur',this)">Duration</button>{% endif %}
+    </div>
+    <div style="height:160px;position:relative;">
+      <canvas id="cardioChartMin"></canvas>
+      <canvas id="cardioChartDist" style="display:none;position:absolute;inset:0;"></canvas>
+      <canvas id="cardioChartDur" style="display:none;position:absolute;inset:0;"></canvas>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab-specific stats (populated by JS per category) -->
+<div id="tabStats" style="margin-bottom:16px;display:none;"></div>
+
+{% if sessions %}
+<div style="display:flex;flex-direction:column;gap:8px;" id="sessionList">
+  {% for s in sessions %}
+  <div id="row-{{ s.id }}" data-activity="{{ s.activity }}" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;gap:12px;padding:13px 16px;">
+    <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg style="width:18px;height:18px;color:#6ee7b7;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:14px;font-weight:600;color:var(--text);">
+        {{ s.activity }}
+      </div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:2px;">
+        {{ s.date | format_date }}
+        {% if s.duration_min %} · {{ s.duration_min | int }} min{% endif %}
+        {% if s.distance %} · {{ s.distance }} {{ s.distance_unit }}{% endif %}
+        {% if s.distance and s.duration_min and s.distance_unit == 'mi' and s.distance > 0 %}
+          {% set pace = s.duration_min / s.distance %}
+          {% set pace_min = pace | int %}
+          {% set pace_sec = ((pace - pace_min) * 60) | int %}
+          · <span style="color:var(--text-2);font-weight:600;">{{ pace_min }}:{{ '%02d' | format(pace_sec) }}/mi</span>
+        {% endif %}
+        {% if s.calories %} · {{ s.calories }} cal{% endif %}
+        {% if s.get("elevation_gain") %} · {{ s.elevation_gain | int }} ft{% endif %}
+        {% if s.get("incline") %} · {{ s.incline }}% incline{% endif %}
+        {% if s.get("speed") %} · {{ s.speed }} mph{% endif %}
+        {% if s.get("avg_heart_rate") %} · <span style="color:#f87171;">{{ s.avg_heart_rate }} bpm</span>{% endif %}
+      </div>
+      {% if s.notes %}<div style="font-size:12px;color:var(--text-2);margin-top:3px;">{{ s.notes }}</div>{% endif %}
+      {% if s.activity == 'Skiing' %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:3px;">
+          {% if s.get("elapsed_time_min") %}Elapsed: {{ s.elapsed_time_min | int }} min · {% endif %}
+          {% if s.get("laps") %}{{ s.laps }} runs · {% endif %}
+          {% if s.distance %}{{ s.distance }} mi · {% endif %}
+          {% if s.get("elevation_gain") %}{{ s.elevation_gain | int }} vert ft{% endif %}
+        </div>
+      {% elif s.activity == 'Golf (Walking)' and s.get("laps") %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:3px;">{{ s.laps }} holes</div>
+      {% elif s.get("pool_length") %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:3px;">{{ s.pool_length | int }} {{ s.get("pool_length_unit", "yd") }} pool{% if s.get("laps") %} · {{ s.laps }} laps{% endif %}</div>
+      {% endif %}
+      {% set splits = splits_by_session.get(s.id, []) %}
+      {% if splits %}
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+        {% for sp in splits %}
+        {% if sp.get("stroke_type") %}
+        <span style="font-size:11px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:4px;padding:3px 8px;color:var(--text-2);">
+          Set {{ sp.mile_number }}: <span style="font-weight:600;">{{ sp.stroke_type }}</span>
+          {% if sp.get("distance_per_stroke") %}<span style="color:#93c5fd;margin-left:4px;">{{ sp.distance_per_stroke }} yd/stroke</span>{% endif %}
+        </span>
+        {% elif sp.get("pace_seconds") %}
+        <span style="font-size:11px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text-2);">
+          {% if sp.get("split_distance") and sp.split_distance != 1.0 %}{{ sp.split_distance }} mi{% else %}Mi {{ sp.mile_number }}{% endif %}:
+          <span style="font-weight:600;">{{ "%d:%02d" | format(sp.pace_seconds // 60, sp.pace_seconds % 60) }}</span>
+          {% if sp.peak_hr_zone %}<span style="color:#f87171;margin-left:4px;">{{ sp.peak_hr_zone }}</span>{% endif %}
+        </span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <button onclick='editSession({{ {"id": s.id, "date": s.date, "activity": s.activity, "duration_min": s.duration_min, "distance": s.distance, "distance_unit": s.distance_unit, "calories": s.calories, "notes": s.notes, "elevation_gain": s.get("elevation_gain"), "avg_heart_rate": s.get("avg_heart_rate"), "incline": s.get("incline"), "speed": s.get("speed"), "pool_length": s.get("pool_length"), "pool_length_unit": s.get("pool_length_unit"), "laps": s.get("laps"), "elapsed_time_min": s.get("elapsed_time_min"), "splits": splits} | tojson }})' style="border:none;background:transparent;padding:4px 8px;cursor:pointer;color:var(--text-3);transition:color .15s;flex-shrink:0;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    </button>
+    <button onclick="deleteSession({{ s.id }})" style="border:none;background:transparent;padding:4px 8px;cursor:pointer;color:var(--text-3);transition:color .15s;flex-shrink:0;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:64px;">
+  <div style="margin-bottom:12px;"><svg style="width:48px;height:48px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+  <p style="color:var(--text-3);">No cardio sessions logged yet.</p>
+  <button onclick="openAddModal()" class="btn btn-primary" style="margin-top:16px;">Log your first session</button>
+</div>
+{% endif %}
+
+<dialog id="addModal" onclick="if(event.target===this)this.close()">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 id="cardioModalTitle" style="font-size:17px;font-weight:700;">Log Cardio</h3>
+    <button onclick="addModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <input type="hidden" id="cId" value="" />
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div>
+      <label class="label">Date</label>
+      <input type="date" id="cDate" class="input" value="{{ today }}" data-local-today />
+    </div>
+    <div>
+      <label class="label">Activity</label>
+      <select id="cActivity" class="input" onchange="handleActivitySelect(this)">
+        <option>Run</option>
+        <option>Walk</option>
+        <option>Incline Walk</option>
+        <option>Bike</option>
+        <option>Row</option>
+        <option>Swim</option>
+        <option>Elliptical</option>
+        <option>Stairmaster</option>
+        <option>Jump Rope</option>
+        <option>Basketball</option>
+        <option>Tennis</option>
+        <option>Pickleball</option>
+        <option>Skiing</option>
+        <option>Golf (Walking)</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <!-- Indoor/outdoor toggle (Walk & Run) -->
+    <div id="fieldLocationType" style="display:none;">
+      <label class="label">Type</label>
+      <div style="display:flex;gap:6px;">
+        <button type="button" class="range-btn active" id="walkOutdoor" onclick="setWalkType('outdoor')">Outdoor</button>
+        <button type="button" class="range-btn" id="walkIndoor" onclick="setWalkType('indoor')">Indoor</button>
+      </div>
+      <input type="hidden" id="cWalkType" value="outdoor" />
+    </div>
+    <!-- Common fields -->
+    <div id="fieldDuration">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;" id="fieldDurationMin">
+          <label class="label">Duration (min)</label>
+          <input type="number" id="cDuration" class="input" placeholder="30" min="0" step="1" />
+        </div>
+        <div style="flex:1;" id="fieldDurationHM" style="display:none;">
+          <label class="label">Workout Time</label>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="number" id="cDurHrs" class="input" placeholder="hrs" min="0" style="width:60px;text-align:center;" inputmode="numeric" />
+            <span style="color:var(--text-3);font-size:12px;">h</span>
+            <input type="number" id="cDurMins" class="input" placeholder="min" min="0" max="59" style="width:60px;text-align:center;" inputmode="numeric" />
+            <span style="color:var(--text-3);font-size:12px;">m</span>
+          </div>
+        </div>
+        <div style="flex:1;" id="fieldCalories">
+          <label class="label">Calories</label>
+          <input type="number" id="cCalories" class="input" placeholder="300" min="0" step="1" />
+        </div>
+      </div>
+    </div>
+    <div id="fieldDistance" style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label class="label">Distance</label>
+        <input type="number" id="cDistance" class="input" placeholder="3.1" min="0" step="0.01" />
+      </div>
+      <div>
+        <label class="label">Unit</label>
+        <select id="cDistUnit" class="input" style="width:64px;"><option>mi</option><option>km</option><option>m</option></select>
+      </div>
+    </div>
+    <div id="fieldElevation">
+      <label class="label">Elevation Gain (ft)</label>
+      <input type="number" id="cElevation" class="input" placeholder="107" min="0" step="1" />
+    </div>
+    <div id="fieldIncline" style="display:none;">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label class="label">Incline (%)</label>
+          <input type="number" id="cIncline" class="input" placeholder="12" min="0" step="0.5" />
+        </div>
+        <div style="flex:1;">
+          <label class="label">Speed (mph)</label>
+          <input type="number" id="cSpeed" class="input" placeholder="3.0" min="0" step="0.1" />
+        </div>
+      </div>
+    </div>
+    <div id="fieldHeartRate">
+      <label class="label">Avg Heart Rate (bpm)</label>
+      <input type="number" id="cHeartRate" class="input" placeholder="156" min="0" step="1" />
+    </div>
+    <!-- Mile splits -->
+    <div id="fieldSplits">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <label class="label" style="margin:0;">Splits</label>
+        <button type="button" onclick="addSplit()" style="border:none;background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">+ Add Split</button>
+      </div>
+      <div id="splitsContainer" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <!-- Swim fields -->
+    <div id="fieldSwim" style="display:none;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label class="label">Pool Length</label>
+          <input type="number" id="cPoolLength" class="input" placeholder="25" min="0" step="1" />
+        </div>
+        <div>
+          <label class="label">Unit</label>
+          <select id="cPoolUnit" class="input" style="width:64px;"><option>yd</option><option>m</option></select>
+        </div>
+        <div style="flex:1;">
+          <label class="label">Laps</label>
+          <input type="number" id="cLaps" class="input" placeholder="40" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <label class="label" style="margin:0;">Swim Sets</label>
+        <button type="button" onclick="addSwimSplit()" style="border:none;background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">+ Add Set</button>
+      </div>
+      <div id="swimSplitsContainer" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <!-- Skiing fields -->
+    <div id="fieldSki" style="display:none;">
+      <div style="margin-bottom:12px;">
+        <label class="label">Mountain</label>
+        <input type="text" id="cMountain" class="input" placeholder="e.g. Killington" />
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label class="label">Elapsed Time</label>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="number" id="cElapsedHrs" class="input" placeholder="hrs" min="0" style="width:60px;text-align:center;" inputmode="numeric" />
+            <span style="color:var(--text-3);font-size:12px;">h</span>
+            <input type="number" id="cElapsedMins" class="input" placeholder="min" min="0" max="59" style="width:60px;text-align:center;" inputmode="numeric" />
+            <span style="color:var(--text-3);font-size:12px;">m</span>
+          </div>
+        </div>
+        <div style="flex:1;">
+          <label class="label">Runs</label>
+          <input type="number" id="cRuns" class="input" placeholder="12" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label class="label">Run Distance (mi)</label>
+          <input type="number" id="cRunDist" class="input" placeholder="8.5" min="0" step="0.1" />
+        </div>
+        <div style="flex:1;">
+          <label class="label">Vertical Feet</label>
+          <input type="number" id="cVertical" class="input" placeholder="12000" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+    </div>
+    <!-- Golf fields -->
+    <div id="fieldGolf" style="display:none;">
+      <div style="margin-bottom:12px;">
+        <label class="label">Course</label>
+        <input type="text" id="cCourse" class="input" placeholder="e.g. Pebble Beach" />
+      </div>
+      <div>
+        <label class="label">Holes</label>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="range-btn" id="golf9" onclick="setHoles(9)">9 Holes</button>
+          <button type="button" class="range-btn" id="golf18" onclick="setHoles(18)">18 Holes</button>
+        </div>
+        <input type="hidden" id="cHoles" value="" />
+      </div>
+    </div>
+    <div>
+      <label class="label">Notes</label>
+      <input type="text" id="cNotes" class="input" placeholder="Optional notes…" />
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveCardio()">Save</button>
+    <button class="btn btn-ghost" onclick="addModal.close()">Cancel</button>
+  </div>
+</dialog>
+
+{% endblock %}
+{% block head %}
+<style>
+.range-btn {
+  padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: var(--text-2); transition: all .15s; letter-spacing: .04em; text-transform: uppercase;
+  font-family: inherit;
+}
+.range-btn.active { background: rgba(255,85,0,0.2); border-color: rgba(255,85,0,0.5); color: #ff5500; }
+.range-btn:hover:not(.active) { background: rgba(255,255,255,0.08); color: var(--text); }
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+async function saveCardio() {
+  const id = document.getElementById('cId').value;
+  const date = document.getElementById('cDate').value;
+  const activity = document.getElementById('cActivity').value;
+  const HM_ACTIVITIES = ['Skiing','Golf (Walking)','Tennis','Basketball','Pickleball'];
+  let duration_min = parseFloat(document.getElementById('cDuration').value) || null;
+  if (HM_ACTIVITIES.includes(activity)) {
+    const h = parseInt(document.getElementById('cDurHrs').value) || 0;
+    const m = parseInt(document.getElementById('cDurMins').value) || 0;
+    duration_min = (h * 60 + m) || null;
+  }
+  let distance = parseFloat(document.getElementById('cDistance').value) || null;
+  const distance_unit = document.getElementById('cDistUnit').value;
+  const calories = parseInt(document.getElementById('cCalories').value) || null;
+  const notes = document.getElementById('cNotes').value;
+  if (!date || !activity) return alert('Date and activity are required.');
+  addModal.close();
+  let elevation_gain = parseFloat(document.getElementById('cElevation').value) || null;
+  if (activity === 'Skiing') {
+    distance = parseFloat(document.getElementById('cRunDist').value) || null;
+    elevation_gain = parseFloat(document.getElementById('cVertical').value) || null;
+  }
+  let finalNotes = notes;
+  if (activity === 'Skiing') {
+    const mtn = document.getElementById('cMountain').value.trim();
+    if (mtn) finalNotes = mtn + (notes ? ' | ' + notes : '');
+  } else if (activity === 'Golf (Walking)') {
+    const course = document.getElementById('cCourse').value.trim();
+    if (course) finalNotes = course + (notes ? ' | ' + notes : '');
+  }
+  const avg_heart_rate = parseInt(document.getElementById('cHeartRate').value) || null;
+  const splits = [];
+  document.querySelectorAll('#splitsContainer .split-row').forEach(row => {
+    const mile = parseInt(row.querySelector('.split-mile').textContent);
+    const paceStr = row.querySelector('.split-pace').value;
+    const zone = row.querySelector('.split-zone').value;
+    const split_distance = parseFloat(row.querySelector('.split-dist').value) || 1.0;
+    let pace_seconds = null;
+    if (paceStr) {
+      const parts = paceStr.split(':');
+      pace_seconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+    }
+    splits.push({ mile, pace_seconds, peak_hr_zone: zone || null, split_distance });
+  });
+  document.querySelectorAll('#swimSplitsContainer .swim-split-row').forEach(row => {
+    const mile = parseInt(row.querySelector('.swim-set-num').textContent);
+    const stroke_type = row.querySelector('.swim-stroke').value || null;
+    const distance_per_stroke = parseFloat(row.querySelector('.swim-dps').value) || null;
+    splits.push({ mile, stroke_type, distance_per_stroke });
+  });
+  const url = id ? `/cardio/edit/${id}` : '/cardio/add';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, activity, duration_min, distance, distance_unit, calories, notes: finalNotes, elevation_gain, avg_heart_rate, splits,
+      incline: parseFloat(document.getElementById('cIncline').value) || null,
+      speed: parseFloat(document.getElementById('cSpeed').value) || null,
+      pool_length: parseFloat(document.getElementById('cPoolLength').value) || null,
+      pool_length_unit: document.getElementById('cPoolUnit').value,
+      laps: parseInt(document.getElementById('cLaps').value) || parseInt(document.getElementById('cRuns').value) || parseInt(document.getElementById('cHoles').value) || null,
+      elapsed_time_min: ((parseInt(document.getElementById('cElapsedHrs').value)||0)*60 + (parseInt(document.getElementById('cElapsedMins').value)||0)) || null })
+  });
+  const data = await res.json();
+  if (data.new_prs && data.new_prs.length) {
+    showCardioPrCelebration(data.new_prs);
+  } else {
+    location.reload();
+  }
+}
+
+function showCardioPrCelebration(prs) {
+  const overlay = document.createElement('div');
+  overlay.style = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;';
+  const rows = prs.map(pr => `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+      <div style="font-weight:600;">${pr.label}</div>
+      <div style="color:#fcd34d;font-weight:700;">${pr.value}</div>
+    </div>`).join('');
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:380px;width:90%;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">🎉</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px;">New Personal Record${prs.length > 1 ? 's' : ''}!</div>
+      <div style="color:var(--text-3);font-size:13px;margin-bottom:16px;">${prs.length > 1 ? 'You crushed it on these' : 'You crushed it on this'}</div>
+      <div style="text-align:left;">${rows}</div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">Nice!</button>
+    </div>`;
+  overlay.querySelector('button').onclick = () => { overlay.remove(); location.reload(); };
+  document.body.appendChild(overlay);
+}
+
+function setHoles(n) {
+  document.getElementById('cHoles').value = n;
+  document.getElementById('golf9').classList.toggle('active', n === 9);
+  document.getElementById('golf18').classList.toggle('active', n === 18);
+}
+
+let walkType = 'outdoor';
+
+function setWalkType(type) {
+  walkType = type;
+  document.getElementById('cWalkType').value = type;
+  document.getElementById('walkOutdoor').classList.toggle('active', type === 'outdoor');
+  document.getElementById('walkIndoor').classList.toggle('active', type === 'indoor');
+  onActivityChange();
+}
+
+function handleActivitySelect(sel) {
+  if (sel.value === 'Other') {
+    const name = prompt('Enter activity name:');
+    if (!name || !name.trim()) { sel.value = 'Run'; onActivityChange(); return; }
+    const trimmed = name.trim();
+    const existing = sel.querySelector(`option[value="${CSS.escape(trimmed)}"]`);
+    if (existing) { sel.value = trimmed; } else {
+      const opt = new Option(trimmed, trimmed, true, true);
+      sel.insertBefore(opt, sel.querySelector('option[value="Other"]'));
+      sel.value = trimmed;
+    }
+  }
+  onActivityChange();
+}
+
+function onActivityChange() {
+  const a = document.getElementById('cActivity').value;
+  // Walk-specific
+  document.getElementById('fieldLocationType').style.display = (a === 'Walk' || a === 'Run') ? '' : 'none';
+  // Show all fields by default, then hide per activity
+  document.getElementById('fieldDistance').style.display = '';
+  document.getElementById('fieldElevation').style.display = '';
+  document.getElementById('fieldHeartRate').style.display = '';
+  document.getElementById('fieldIncline').style.display = 'none';
+  document.getElementById('fieldSplits').style.display = '';
+  document.getElementById('fieldSwim').style.display = 'none';
+  document.getElementById('fieldSki').style.display = 'none';
+  document.getElementById('fieldGolf').style.display = 'none';
+  document.getElementById('fieldDurationMin').style.display = '';
+  document.getElementById('fieldDurationHM').style.display = 'none';
+
+  if (a === 'Walk') {
+    document.getElementById('fieldSplits').style.display = 'none';
+    if (walkType === 'indoor') {
+      document.getElementById('fieldElevation').style.display = 'none';
+      document.getElementById('fieldIncline').style.display = '';
+    } else {
+      document.getElementById('fieldIncline').style.display = 'none';
+    }
+  } else if (a === 'Run') {
+    if (walkType === 'indoor') {
+      document.getElementById('fieldElevation').style.display = 'none';
+    }
+  } else if (a === 'Incline Walk') {
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldIncline').style.display = '';
+    document.getElementById('fieldSplits').style.display = 'none';
+  } else if (a === 'Bike') {
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+  } else if (a === 'Row') {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+  } else if (a === 'Swim') {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+    document.getElementById('fieldSwim').style.display = '';
+  } else if (a === 'Elliptical' || a === 'Stairmaster' || a === 'Jump Rope') {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+  } else if (a === 'Basketball' || a === 'Tennis' || a === 'Pickleball') {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+    document.getElementById('fieldDurationMin').style.display = 'none';
+    document.getElementById('fieldDurationHM').style.display = '';
+  } else if (a === 'Skiing') {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+    document.getElementById('fieldSki').style.display = '';
+    document.getElementById('fieldDurationMin').style.display = 'none';
+    document.getElementById('fieldDurationHM').style.display = '';
+  } else if (a === 'Golf (Walking)') {
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+    document.getElementById('fieldGolf').style.display = '';
+    document.getElementById('fieldDurationMin').style.display = 'none';
+    document.getElementById('fieldDurationHM').style.display = '';
+  } else {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+  }
+}
+
+function openAddModal() {
+  document.getElementById('cId').value = '';
+  document.getElementById('cDate').value = localDateStr();
+  document.getElementById('cActivity').selectedIndex = 0;
+  document.getElementById('cDuration').value = '';
+  document.getElementById('cDistance').value = '';
+  document.getElementById('cDistUnit').selectedIndex = 0;
+  document.getElementById('cCalories').value = '';
+  document.getElementById('cElevation').value = '';
+  document.getElementById('cHeartRate').value = '';
+  document.getElementById('cIncline').value = '';
+  document.getElementById('cSpeed').value = '';
+  document.getElementById('cNotes').value = '';
+  document.getElementById('splitsContainer').innerHTML = '';
+  document.getElementById('cPoolLength').value = '';
+  document.getElementById('cPoolUnit').selectedIndex = 0;
+  document.getElementById('cLaps').value = '';
+  document.getElementById('swimSplitsContainer').innerHTML = '';
+  document.getElementById('cCourse').value = '';
+  document.getElementById('cHoles').value = '';
+  document.getElementById('golf9').classList.remove('active');
+  document.getElementById('golf18').classList.remove('active');
+  document.getElementById('cMountain').value = '';
+  document.getElementById('cElapsedHrs').value = '';
+  document.getElementById('cElapsedMins').value = '';
+  document.getElementById('cDurHrs').value = '';
+  document.getElementById('cDurMins').value = '';
+  document.getElementById('cRuns').value = '';
+  document.getElementById('cRunDist').value = '';
+  document.getElementById('cVertical').value = '';
+  walkType = 'outdoor';
+  document.getElementById('cardioModalTitle').textContent = 'Log Cardio';
+  onActivityChange();
+  addModal.showModal();
+}
+
+function addSplit(mile, pace, zone, dist) {
+  const container = document.getElementById('splitsContainer');
+  const num = mile || (container.children.length + 1);
+  const row = document.createElement('div');
+  row.className = 'split-row';
+  row.style = 'display:flex;gap:6px;align-items:center;';
+  const paceVal = pace ? `${Math.floor(pace/60)}:${String(pace%60).padStart(2,'0')}` : '';
+  const distVal = dist != null ? dist : 1;
+  row.innerHTML = `
+    <span class="split-mile" style="font-size:12px;font-weight:600;color:var(--text-3);width:24px;text-align:center;">${num}</span>
+    <input type="number" class="input split-dist" placeholder="mi" step="0.01" min="0.01" value="${distVal}" style="width:58px;padding:6px 6px;font-size:13px;text-align:center;" title="Distance (mi)" />
+    <input type="text" class="input split-pace" placeholder="9:31" style="flex:1;padding:6px 8px;font-size:13px;text-align:center;" value="${paceVal}" />
+    <select class="input split-zone" style="width:86px;padding:6px 4px;font-size:12px;">
+      <option value="">Zone</option>
+      <option ${zone==='Zone 1'?'selected':''}>Zone 1</option>
+      <option ${zone==='Zone 2'?'selected':''}>Zone 2</option>
+      <option ${zone==='Zone 3'?'selected':''}>Zone 3</option>
+      <option ${zone==='Zone 4'?'selected':''}>Zone 4</option>
+      <option ${zone==='Zone 5'?'selected':''}>Zone 5</option>
+    </select>
+    <button type="button" onclick="this.closest('.split-row').remove();renumberSplits()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:2px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>`;
+  container.appendChild(row);
+}
+
+function renumberSplits() {
+  document.querySelectorAll('#splitsContainer .split-mile').forEach((el, i) => el.textContent = i + 1);
+}
+
+function addSwimSplit(setNum, stroke, dps) {
+  const container = document.getElementById('swimSplitsContainer');
+  const num = setNum || (container.children.length + 1);
+  const row = document.createElement('div');
+  row.className = 'swim-split-row';
+  row.style = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <span class="swim-set-num" style="font-size:12px;font-weight:600;color:var(--text-3);width:28px;text-align:center;">${num}</span>
+    <select class="input swim-stroke" style="flex:1;padding:6px 4px;font-size:12px;">
+      <option value="">Stroke</option>
+      <option ${stroke==='Freestyle'?'selected':''}>Freestyle</option>
+      <option ${stroke==='Backstroke'?'selected':''}>Backstroke</option>
+      <option ${stroke==='Breaststroke'?'selected':''}>Breaststroke</option>
+      <option ${stroke==='Butterfly'?'selected':''}>Butterfly</option>
+      <option ${stroke==='IM'?'selected':''}>IM</option>
+    </select>
+    <input type="number" class="input swim-dps" placeholder="yd/stroke" style="width:80px;padding:6px 8px;font-size:12px;text-align:center;" step="0.1" min="0" value="${dps||''}" />
+    <button type="button" onclick="this.closest('.swim-split-row').remove();renumberSwimSplits()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:2px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>`;
+  container.appendChild(row);
+}
+
+function renumberSwimSplits() {
+  document.querySelectorAll('#swimSplitsContainer .swim-set-num').forEach((el, i) => el.textContent = i + 1);
+}
+
+{% if sessions %}
+const lastSession = {{ dict(sessions[0]) | tojson }};
+{% endif %}
+function repeatLast() {
+  document.getElementById('cId').value = '';
+  document.getElementById('cDate').value = localDateStr();
+  document.getElementById('cActivity').value = lastSession.activity;
+  document.getElementById('cDuration').value = lastSession.duration_min || '';
+  document.getElementById('cDistance').value = lastSession.distance || '';
+  document.getElementById('cDistUnit').value = lastSession.distance_unit || 'mi';
+  document.getElementById('cCalories').value = lastSession.calories || '';
+  document.getElementById('cElevation').value = '';
+  document.getElementById('cHeartRate').value = '';
+  document.getElementById('cIncline').value = '';
+  document.getElementById('cSpeed').value = '';
+  document.getElementById('cNotes').value = '';
+  document.getElementById('splitsContainer').innerHTML = '';
+  document.getElementById('cardioModalTitle').textContent = 'Log Cardio';
+  onActivityChange();
+  addModal.showModal();
+}
+
+function editSession(s) {
+  document.getElementById('cId').value = s.id;
+  document.getElementById('cDate').value = s.date;
+  document.getElementById('cActivity').value = s.activity;
+  document.getElementById('cDuration').value = s.duration_min || '';
+  document.getElementById('cDistance').value = s.distance || '';
+  document.getElementById('cDistUnit').value = s.distance_unit || 'mi';
+  document.getElementById('cCalories').value = s.calories || '';
+  document.getElementById('cElevation').value = s.elevation_gain || '';
+  document.getElementById('cHeartRate').value = s.avg_heart_rate || '';
+  document.getElementById('cIncline').value = s.incline || '';
+  document.getElementById('cSpeed').value = s.speed || '';
+  document.getElementById('cMountain').value = '';
+  document.getElementById('cCourse').value = '';
+  document.getElementById('cHoles').value = '';
+  document.getElementById('golf9').classList.remove('active');
+  document.getElementById('golf18').classList.remove('active');
+  const locationAct = s.activity === 'Skiing' || s.activity === 'Golf (Walking)';
+  if (locationAct && s.notes && s.notes.includes(' | ')) {
+    const [loc, ...rest] = s.notes.split(' | ');
+    if (s.activity === 'Skiing') document.getElementById('cMountain').value = loc;
+    else document.getElementById('cCourse').value = loc;
+    document.getElementById('cNotes').value = rest.join(' | ');
+  } else if (locationAct && s.notes && !s.notes.includes(' | ')) {
+    if (s.activity === 'Skiing') document.getElementById('cMountain').value = s.notes;
+    else document.getElementById('cCourse').value = s.notes;
+    document.getElementById('cNotes').value = '';
+  } else {
+    document.getElementById('cNotes').value = s.notes || '';
+  }
+  if (s.activity === 'Golf (Walking)' && s.laps) setHoles(s.laps);
+  document.getElementById('splitsContainer').innerHTML = '';
+  document.getElementById('swimSplitsContainer').innerHTML = '';
+  document.getElementById('cPoolLength').value = s.pool_length || '';
+  document.getElementById('cPoolUnit').value = s.pool_length_unit || 'yd';
+  document.getElementById('cLaps').value = s.laps || '';
+  const et = s.elapsed_time_min || 0;
+  document.getElementById('cElapsedHrs').value = et ? Math.floor(et / 60) : '';
+  document.getElementById('cElapsedMins').value = et ? et % 60 : '';
+  const hmActs = ['Skiing','Golf (Walking)','Tennis','Basketball','Pickleball'];
+  if (hmActs.includes(s.activity) && s.duration_min) {
+    document.getElementById('cDurHrs').value = Math.floor(s.duration_min / 60);
+    document.getElementById('cDurMins').value = s.duration_min % 60;
+  } else {
+    document.getElementById('cDurHrs').value = '';
+    document.getElementById('cDurMins').value = '';
+  }
+  document.getElementById('cRuns').value = (s.activity === 'Skiing' && s.laps) ? s.laps : '';
+  document.getElementById('cRunDist').value = (s.activity === 'Skiing' && s.distance) ? s.distance : '';
+  document.getElementById('cVertical').value = (s.activity === 'Skiing' && s.elevation_gain) ? s.elevation_gain : '';
+  if (s.splits) {
+    for (const sp of s.splits) {
+      if (sp.stroke_type) {
+        addSwimSplit(sp.mile_number, sp.stroke_type, sp.distance_per_stroke);
+      } else {
+        addSplit(sp.mile_number, sp.pace_seconds, sp.peak_hr_zone, sp.split_distance);
+      }
+    }
+  }
+  document.getElementById('cardioModalTitle').textContent = 'Edit Cardio Session';
+  onActivityChange();
+  addModal.showModal();
+}
+
+const MACHINES = ['Bike','Row','Swim','Elliptical','Stairmaster','Jump Rope'];
+const SPORTS = ['Basketball','Tennis','Pickleball','Skiing','Golf (Walking)'];
+const ALL_SESSIONS = [
+  {% for s in sessions %}
+  {date:"{{s.date}}",activity:"{{s.activity}}",duration_min:{{s.duration_min or 'null'}},distance:{{s.distance or 'null'}},distance_unit:"{{s.distance_unit or 'mi'}}",calories:{{s.calories or 'null'}},avg_heart_rate:{{s.get('avg_heart_rate') or 'null'}},splits:{{ splits_by_session.get(s.id, []) | tojson }}},
+  {% endfor %}
+];
+
+const _today = new Date();
+const _weekStart = new Date(_today); _weekStart.setDate(_today.getDate() - _today.getDay());
+const _monthStart = new Date(_today.getFullYear(), _today.getMonth(), 1);
+const weekStr = _weekStart.toISOString().slice(0,10);
+const monthStr = _monthStart.toISOString().slice(0,10);
+
+function matchesTab(activity, tab) {
+  if (tab === 'all') return true;
+  if (tab === 'machines') return MACHINES.includes(activity);
+  if (tab === 'sports') return SPORTS.includes(activity);
+  return activity === tab;
+}
+
+function fmtPace(mins) {
+  const m = Math.floor(mins);
+  const s = Math.round((mins - m) * 60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function statCard(accent, label, value) {
+  return `<div class="stat-card" style="--stat-accent:${accent};">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">${label}</div>
+    <div class="stat-num" style="color:${accent};">${value}</div>
+  </div>`;
+}
+
+function avgHR(sessions) {
+  const hrs = sessions.filter(s => s.avg_heart_rate);
+  if (!hrs.length) return null;
+  return Math.round(hrs.reduce((a,s) => a + s.avg_heart_rate, 0) / hrs.length);
+}
+
+const TAB_LABELS = { 'Run': 'runs', 'Walk': 'walks', 'Incline Walk': 'incline walks', 'machines': 'machine sessions', 'sports': 'sport sessions' };
+
+function buildTabStats(tab) {
+  const el = document.getElementById('tabStats');
+  if (tab === 'all') { el.style.display = 'none'; return; }
+  const filtered = ALL_SESSIONS.filter(s => matchesTab(s.activity, tab));
+  if (!filtered.length) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;">
+      <p style="color:var(--text-3);font-size:14px;">No ${TAB_LABELS[tab] || 'sessions'} logged yet.</p>
+      <button onclick="openAddModal()" class="btn btn-primary" style="margin-top:14px;">Log one</button>
+    </div>`;
+    el.style.display = '';
+    return;
+  }
+  const week = filtered.filter(s => s.date >= weekStr);
+  const month = filtered.filter(s => s.date >= monthStr);
+  const wMins = Math.round(week.reduce((a,s) => a + (s.duration_min||0), 0));
+  const mMins = Math.round(month.reduce((a,s) => a + (s.duration_min||0), 0));
+
+  const lastWeekStartD = new Date(_weekStart); lastWeekStartD.setDate(lastWeekStartD.getDate() - 7);
+  const lastWeekStart = lastWeekStartD.toISOString().slice(0,10);
+  const lastWeek = filtered.filter(s => s.date >= lastWeekStart && s.date < weekStr);
+  const lastWMins = Math.round(lastWeek.reduce((a,s) => a + (s.duration_min||0), 0));
+  let trend = '';
+  if (lastWeek.length || week.length) {
+    const diff = week.length - lastWeek.length;
+    const color = diff > 0 ? '#6ee7b7' : diff < 0 ? '#f87171' : 'var(--text-3)';
+    const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '–';
+    trend = `<div style="font-size:10px;color:${color};margin-top:2px;">${arrow} ${Math.abs(diff)} vs last wk</div>`;
+  }
+  const hr = avgHR(filtered);
+  const hrCard = hr ? statCard('#f87171', 'Avg Heart Rate', `${hr}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">bpm</span>`) : '';
+
+  let extra = '';
+
+  if (tab === 'Run') {
+    const totalDist = filtered.reduce((a,s) => a + (s.distance||0), 0).toFixed(1);
+    let bestSplitPace = null, avgPaceSum = 0, avgPaceCount = 0;
+    for (const s of filtered) {
+      if (s.splits) {
+        for (const sp of s.splits) {
+          if (sp.pace_seconds) {
+            const paceMin = sp.pace_seconds / 60;
+            if (!bestSplitPace || paceMin < bestSplitPace) bestSplitPace = paceMin;
+          }
+        }
+      }
+      if (s.distance && s.duration_min && s.distance_unit === 'mi' && s.distance > 0) {
+        const p = s.duration_min / s.distance;
+        avgPaceSum += p; avgPaceCount++;
+      }
+    }
+    const avgPace = avgPaceCount ? avgPaceSum / avgPaceCount : null;
+    const maxDist = filtered.reduce((best,s) => (s.distance||0) > (best.distance||0) ? s : best, {distance:0});
+    extra = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+      ${statCard('#10b981', 'Total Distance', `${totalDist}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">mi</span>`)}
+      ${statCard('#8b5cf6', 'Longest Run', maxDist.distance ? `${maxDist.distance}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">${maxDist.distance_unit}</span>` : '—')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+      ${statCard('#ec4899', 'Fastest Split', bestSplitPace ? `${fmtPace(bestSplitPace)}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">/mi</span>` : '—')}
+      ${statCard('#f59e0b', 'Avg Pace', avgPace ? `${fmtPace(avgPace)}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">/mi</span>` : '—')}
+    </div>`;
+
+  } else if (tab === 'Walk') {
+    const totalDist = filtered.reduce((a,s) => a + (s.distance||0), 0).toFixed(1);
+    const avgDur = filtered.length ? Math.round(filtered.reduce((a,s) => a + (s.duration_min||0), 0) / filtered.length) : 0;
+    extra = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+      ${statCard('#10b981', 'Total Distance', `${totalDist}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">mi</span>`)}
+      ${statCard('#8b5cf6', 'Avg Duration', `${avgDur}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">min</span>`)}
+    </div>`;
+
+  } else if (tab === 'Incline Walk') {
+    const avgDur = filtered.length ? Math.round(filtered.reduce((a,s) => a + (s.duration_min||0), 0) / filtered.length) : 0;
+    const calSessions = filtered.filter(s => s.calories);
+    const avgCal = calSessions.length ? Math.round(calSessions.reduce((a,s) => a + s.calories, 0) / calSessions.length) : 0;
+    extra = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+      ${statCard('#8b5cf6', 'Avg Duration', `${avgDur}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">min</span>`)}
+      ${statCard('#10b981', 'Avg Calories', avgCal ? `${avgCal}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">cal</span>` : '—')}
+    </div>`;
+
+  } else if (tab === 'machines' || tab === 'sports') {
+    const calSessions = filtered.filter(s => s.calories);
+    const avgCal = calSessions.length ? Math.round(calSessions.reduce((a,s) => a + s.calories, 0) / calSessions.length) : 0;
+    const counts = {};
+    filtered.forEach(s => { counts[s.activity] = (counts[s.activity]||0) + 1; });
+    const breakdown = Object.entries(counts).sort((a,b) => b[1]-a[1])
+      .map(([name, c]) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">${name}</span><span style="font-size:12px;font-weight:600;color:#fcd34d;">${c}</span></div>`).join('');
+    extra = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+      ${statCard('#10b981', 'Avg Calories', avgCal ? `${avgCal}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">cal</span>` : '—')}
+      ${hrCard || statCard('#f87171', 'Avg Heart Rate', '—')}
+    </div>
+    <div class="card" style="padding:14px 16px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Breakdown</div>
+      ${breakdown}
+    </div>`;
+  }
+
+  const chartHtml = `<div class="card" style="margin-bottom:10px;padding:16px 16px 12px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:10px;">Weekly Minutes</div>
+    <div style="height:140px;position:relative;"><canvas id="tabChartMin"></canvas></div>
+  </div>`;
+  const paceChartHtml = tab === 'Run' ? `<div class="card" style="margin-bottom:10px;padding:16px 16px 12px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:10px;">Pace Trend</div>
+    <div style="height:140px;position:relative;"><canvas id="tabChartPace"></canvas></div>
+  </div>` : '';
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
+    ${statCard('#f59e0b', 'This Week', `${week.length}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">sessions</span><div style="font-size:11px;color:var(--text-3);margin-top:4px;">${wMins} min</div>${trend}`)}
+    ${statCard('#f59e0b', 'This Month', `${month.length}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">sessions</span><div style="font-size:11px;color:var(--text-3);margin-top:4px;">${mMins} min</div>`)}
+    ${hrCard || statCard('#f87171', 'Avg Heart Rate', '—')}
+  </div>${extra}${chartHtml}${paceChartHtml}`;
+  el.style.display = '';
+  buildTabCharts(tab, filtered);
+}
+
+let tabChartInstances = {};
+
+function buildTabCharts(tab, filtered) {
+  Object.values(tabChartInstances).forEach(c => c && c.destroy());
+  tabChartInstances = {};
+
+  // Weekly minutes (last 8 weeks)
+  const weeks = [];
+  const today = new Date();
+  for (let i = 7; i >= 0; i--) {
+    const ws = new Date(today); ws.setDate(today.getDate() - today.getDay() - i * 7);
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    weeks.push({ start: ws.toISOString().slice(0,10), end: we.toISOString().slice(0,10),
+      label: ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), minutes: 0 });
+  }
+  filtered.forEach(s => {
+    for (const wk of weeks) {
+      if (s.date >= wk.start && s.date <= wk.end) { wk.minutes += s.duration_min || 0; break; }
+    }
+  });
+  const minCtx = document.getElementById('tabChartMin');
+  if (minCtx) {
+    tabChartInstances.min = new Chart(minCtx.getContext('2d'), {
+      type: 'bar',
+      data: { labels: weeks.map(w=>w.label), datasets: [{ data: weeks.map(w=>Math.round(w.minutes)), backgroundColor: '#f59e0b55', borderColor: '#f59e0b', borderWidth: 1.5, borderRadius: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: chartColors().grid } }
+        }
+      }
+    });
+  }
+
+  // Pace trend for Run (per session)
+  if (tab === 'Run') {
+    const paceCtx = document.getElementById('tabChartPace');
+    if (paceCtx) {
+      const paceSessions = filtered
+        .filter(s => s.distance && s.duration_min && s.distance_unit === 'mi' && s.distance > 0)
+        .sort((a,b) => a.date.localeCompare(b.date))
+        .slice(-20);
+      tabChartInstances.pace = new Chart(paceCtx.getContext('2d'), {
+        type: 'line',
+        data: { labels: paceSessions.map(s=>s.date), datasets: [{ data: paceSessions.map(s => +(s.duration_min/s.distance).toFixed(2)), borderColor: '#ec4899', backgroundColor: '#ec489922', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#ec4899', borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtPace(c.raw) + '/mi' } } },
+          scales: {
+            x: { ticks: { font: { size: 10 }, maxTicksLimit: 6 }, grid: { display: false } },
+            y: { reverse: true, ticks: { font: { size: 10 }, callback: v => fmtPace(v) }, grid: { color: chartColors().grid } }
+          }
+        }
+      });
+    }
+  }
+}
+
+function filterTab(tab, btn) {
+  document.querySelectorAll('#cardioTabs .range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#sessionList > div').forEach(row => {
+    const a = row.dataset.activity;
+    row.style.display = matchesTab(a, tab) ? '' : 'none';
+  });
+  document.getElementById('allTabContent').style.display = tab === 'all' ? '' : 'none';
+  buildTabStats(tab);
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete this session?')) return;
+  await fetch(`/cardio/delete/${id}`, { method: 'POST' });
+  document.getElementById(`row-${id}`).remove();
+}
+
+const cardioCharts = {};
+
+function makeBarChart(id, labels, data, color, yLabel) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  cardioCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: color + '55', borderColor: color, borderWidth: 1.5, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxTicksLimit: window.innerWidth < 500 ? 4 : 8, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v + yLabel }, grid: { color: chartColors().grid } }
+      }
+    }
+  });
+}
+
+function makeLineChart(id, labels, data, color, yLabel) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  cardioCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: color, backgroundColor: color + '22', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: color, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxTicksLimit: window.innerWidth < 500 ? 4 : 8, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v + yLabel }, grid: { color: chartColors().grid } }
+      }
+    }
+  });
+}
+
+{% if chart_minutes and chart_minutes | sum > 0 %}
+makeBarChart('cardioChartMin', {{ chart_labels | tojson }}, {{ chart_minutes | tojson }}, '#f59e0b', 'm');
+{% endif %}
+{% if chart_dist_values %}
+makeLineChart('cardioChartDist', {{ chart_dist_labels | tojson }}, {{ chart_dist_values | tojson }}, '#34d399', ' mi');
+{% endif %}
+{% if chart_dur_values %}
+makeLineChart('cardioChartDur', {{ chart_dur_labels | tojson }}, {{ chart_dur_values | tojson }}, '#a78bfa', 'm');
+{% endif %}
+
+function showCardioTab(tab, btn) {
+  ['min','dist','dur'].forEach(t => {
+    const el = document.getElementById('cardioChart' + t[0].toUpperCase() + t.slice(1));
+    if (el) el.style.display = t === tab ? '' : 'none';
+    const b = document.getElementById('ctab-' + t);
+    if (b) b.classList.toggle('active', t === tab);
+  });
+}
+</script>
+{% endblock %}

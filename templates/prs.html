@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% block title %}Personal Records — WorkoutTracker{% endblock %}
+{% block header_color %}#ff6644{% endblock %}{% block header_title %}Personal Records{% endblock %}
+{% block content %}
+
+<h1 class="page-title" style="margin-bottom:20px;">Personal Records</h1>
+
+{% if prs %}
+
+<!-- PR counts -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+  <div class="stat-card" style="--stat-accent:#f59e0b;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">PRs This Month</div>
+    <div class="stat-num" style="color:#fcd34d;">{{ pr_count_month }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#ff5500;text-align:center;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">PRs This Year</div>
+    <div class="stat-num" style="color:#fdba74;">{{ pr_count_year }}</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div style="display:flex;gap:6px;margin-bottom:20px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+  <button class="pr-tab active" onclick="showTab('all', this)">All PRs</button>
+  <button class="pr-tab" onclick="showTab('recent', this)">Recent</button>
+  <button class="pr-tab" onclick="showTab('1', this)">1RM</button>
+  <button class="pr-tab" onclick="showTab('3', this)">3RM</button>
+  <button class="pr-tab" onclick="showTab('5', this)">5RM</button>
+  <button class="pr-tab" onclick="showTab('other', this)">Other</button>
+  <button class="pr-tab" onclick="showTab('e1rm', this)">Est. Max</button>
+  <button class="pr-tab" onclick="showTab('cardio', this)">Cardio</button>
+</div>
+
+<!-- Recent PRs -->
+<div id="tab-recent" class="pr-panel" style="display:none;">
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button class="pr-tab active" id="recent-30-btn" onclick="showRecent(30, this)">Last 30 Days</button>
+    <button class="pr-tab" id="recent-90-btn" onclick="showRecent(90, this)">Last 90 Days</button>
+  </div>
+  {% for window, recent_list in [(30, recent_prs_30), (90, recent_prs_90)] %}
+  <div id="recent-{{ window }}" class="recent-panel" {% if window != 30 %}style="display:none;"{% endif %}>
+    {% if recent_list %}
+    <div class="card card-flush">
+      <table class="tbl">
+        <thead><tr><th>Exercise</th><th class="r">New Best</th><th class="r">Set</th><th class="r">Date</th></tr></thead>
+        <tbody>
+          {% for p in recent_list %}
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#f59e0b;flex-shrink:0;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><span style="font-weight:600;">{{ p.name }}</span></div></td>
+            <td class="r"><span style="font-size:15px;font-weight:800;color:#a78bfa;">{{ p.e1rm }}</span><span style="font-size:11px;color:var(--text-3);margin-left:2px;">{{ p.unit }} e1RM</span></td>
+            <td class="r" style="color:var(--text-2);font-size:13px;">{{ p.weight }} {{ p.unit }} × {{ p.reps }}</td>
+            <td class="r" style="color:var(--text-3);font-size:13px;">{{ p.date | format_date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:48px;">
+      <p style="color:var(--text-3);">No new PRs in the last {{ window }} days.</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- All PRs -->
+<div id="tab-all" class="pr-panel">
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    {% for group, group_prs in prs_by_group.items() %}
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding-left:2px;">{{ group }}</div>
+      <div class="card card-flush">
+        <table class="tbl">
+          <thead><tr>
+            <th>Exercise</th>
+            <th class="r">Weight</th>
+            <th class="r">Reps</th>
+            <th class="r">Days Since</th>
+            <th class="r">To Next 25</th>
+            <th class="r">Date</th>
+          </tr></thead>
+          <tbody>
+            {% for name, pr in group_prs.items() %}
+            <tr class="pr-row" onclick="showHistory('{{ name | e }}')" style="cursor:pointer;">
+              <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#f59e0b;flex-shrink:0;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><span style="font-weight:600;">{{ name }}</span></div></td>
+              <td class="r">
+                {% if pr.weight %}<span style="font-size:16px;font-weight:800;color:var(--accent);">{{ pr.weight }}</span><span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ pr.unit }}</span>{% else %}—{% endif %}
+              </td>
+              <td class="r" style="font-weight:500;">{{ pr.reps or '—' }}</td>
+              <td class="r">
+                <span style="font-size:11px;font-weight:600;color:{% if pr.days_since <= 7 %}#34d399{% elif pr.days_since <= 30 %}var(--text-2){% else %}#f87171{% endif %};background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap;">
+                  {% if pr.days_since == 0 %}Today{% elif pr.days_since == 1 %}Yesterday{% else %}{{ pr.days_since }}d ago{% endif %}
+                </span>
+              </td>
+              <td class="r" style="min-width:90px;">
+                {% if pr.next_milestone %}
+                <div style="font-size:11px;color:var(--text-3);margin-bottom:3px;">{{ (pr.next_milestone - pr.weight) | round(1) }} {{ pr.unit }} to {{ pr.next_milestone }}</div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;width:{{ pr.milestone_pct }}%;background:#f59e0b;border-radius:2px;"></div>
+                </div>
+                {% else %}—{% endif %}
+              </td>
+              <td class="r" style="color:var(--text-3);font-size:13px;">{{ pr.date | format_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- PR history modal -->
+<dialog id="historyModal" onclick="if(event.target===this)this.close()">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 id="historyTitle" style="font-size:17px;font-weight:700;">Progression</h3>
+    <button onclick="historyModal.close()" style="border:none;background:transparent;cursor:pointer;color:var(--text-3);padding:4px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+      <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div style="height:220px;width:min(90vw,420px);"><canvas id="historyChart"></canvas></div>
+  <div style="display:flex;gap:8px;margin-top:20px;">
+    <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="historyModal.close()">Close</button>
+  </div>
+</dialog>
+
+<!-- 1RM -->
+<div id="tab-1" class="pr-panel" style="display:none;">
+  {% set rep_prs = prs_by_reps.get(1, {}) %}
+  {% if rep_prs %}
+  <div class="card card-flush">
+    <table class="tbl">
+      <thead><tr><th>Exercise</th><th class="r">Weight</th><th class="r">Days Since</th><th class="r">Date</th></tr></thead>
+      <tbody>
+        {% for name, pr in rep_prs.items() | sort %}
+        <tr>
+          <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#ff5500;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4M7 4H4a1 1 0 00-1 1v3c0 2.5 1.5 4.5 4 5m10-8h3a1 1 0 011 1v3c0 2.5-1.5 4.5-4 5M7 4h10v7a5 5 0 01-10 0V4z"/></svg><span style="font-weight:600;">{{ name }}</span></div></td>
+          <td class="r"><span style="font-size:16px;font-weight:800;color:#f59e0b;">{{ pr.weight }}</span><span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ pr.unit }}</span></td>
+          <td class="r"><span style="font-size:11px;font-weight:600;color:{% if pr.days_since <= 7 %}#34d399{% elif pr.days_since <= 30 %}var(--text-2){% else %}#f87171{% endif %};background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap;">{% if pr.days_since == 0 %}Today{% elif pr.days_since == 1 %}Yesterday{% else %}{{ pr.days_since }}d ago{% endif %}</span></td>
+          <td class="r" style="color:var(--text-3);font-size:13px;">{{ pr.date | format_date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <div style="margin-bottom:12px;"><svg style="width:40px;height:40px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4M7 4H4a1 1 0 00-1 1v3c0 2.5 1.5 4.5 4 5m10-8h3a1 1 0 011 1v3c0 2.5-1.5 4.5-4 5M7 4h10v7a5 5 0 01-10 0V4z"/></svg></div>
+    <p style="color:var(--text-3);">No 1-rep max sets logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 3RM -->
+<div id="tab-3" class="pr-panel" style="display:none;">
+  {% set rep_prs = prs_by_reps.get(3, {}) %}
+  {% if rep_prs %}
+  <div class="card card-flush">
+    <table class="tbl">
+      <thead><tr><th>Exercise</th><th class="r">Weight</th><th class="r">Days Since</th><th class="r">Date</th></tr></thead>
+      <tbody>
+        {% for name, pr in rep_prs.items() | sort %}
+        <tr>
+          <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#f59e0b;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg><span style="font-weight:600;">{{ name }}</span></div></td>
+          <td class="r"><span style="font-size:16px;font-weight:800;color:#34d399;">{{ pr.weight }}</span><span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ pr.unit }}</span></td>
+          <td class="r"><span style="font-size:11px;font-weight:600;color:{% if pr.days_since <= 7 %}#34d399{% elif pr.days_since <= 30 %}var(--text-2){% else %}#f87171{% endif %};background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap;">{% if pr.days_since == 0 %}Today{% elif pr.days_since == 1 %}Yesterday{% else %}{{ pr.days_since }}d ago{% endif %}</span></td>
+          <td class="r" style="color:var(--text-3);font-size:13px;">{{ pr.date | format_date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <div style="margin-bottom:12px;"><svg style="width:40px;height:40px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+    <p style="color:var(--text-3);">No 3-rep max sets logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 5RM -->
+<div id="tab-5" class="pr-panel" style="display:none;">
+  {% set rep_prs = prs_by_reps.get(5, {}) %}
+  {% if rep_prs %}
+  <div class="card card-flush">
+    <table class="tbl">
+      <thead><tr><th>Exercise</th><th class="r">Weight</th><th class="r">Days Since</th><th class="r">Date</th></tr></thead>
+      <tbody>
+        {% for name, pr in rep_prs.items() | sort %}
+        <tr>
+          <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#ff5500;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg><span style="font-weight:600;">{{ name }}</span></div></td>
+          <td class="r"><span style="font-size:16px;font-weight:800;color:#ff5500;">{{ pr.weight }}</span><span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ pr.unit }}</span></td>
+          <td class="r"><span style="font-size:11px;font-weight:600;color:{% if pr.days_since <= 7 %}#34d399{% elif pr.days_since <= 30 %}var(--text-2){% else %}#f87171{% endif %};background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap;">{% if pr.days_since == 0 %}Today{% elif pr.days_since == 1 %}Yesterday{% else %}{{ pr.days_since }}d ago{% endif %}</span></td>
+          <td class="r" style="color:var(--text-3);font-size:13px;">{{ pr.date | format_date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <div style="margin-bottom:12px;"><svg style="width:40px;height:40px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg></div>
+    <p style="color:var(--text-3);">No 5-rep max sets logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Other -->
+<div id="tab-other" class="pr-panel" style="display:none;">
+  {% set shown_reps = [1, 3, 5] %}
+  {% set has_other = namespace(value=false) %}
+  {% for rep, exercises in prs_by_reps.items() %}
+    {% if rep not in shown_reps %}{% set has_other.value = true %}{% endif %}
+  {% endfor %}
+  {% if has_other.value %}
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    {% for rep in prs_by_reps.keys() | sort %}
+      {% if rep not in shown_reps %}
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">{{ rep }}-Rep Max</div>
+        <div class="card card-flush">
+          <table class="tbl">
+            <thead><tr><th>Exercise</th><th class="r">Weight</th><th class="r">Date</th></tr></thead>
+            <tbody>
+              {% for name, pr in prs_by_reps[rep].items() | sort %}
+              <tr>
+                <td><span style="font-weight:600;">{{ name }}</span></td>
+                <td class="r"><span style="font-size:16px;font-weight:800;color:var(--accent);">{{ pr.weight }}</span><span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ pr.unit }}</span></td>
+                <td class="r" style="color:var(--text-3);font-size:13px;">{{ pr.date | format_date }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-3);">No other rep maxes logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Est. 1RM -->
+<div id="tab-e1rm" class="pr-panel" style="display:none;">
+  <div style="font-size:13px;color:var(--text-3);margin-bottom:14px;line-height:1.6;">
+    Estimated using the <strong style="color:var(--text-2);">Epley formula</strong>. Calculated from your best set per exercise (up to 12 reps).
+  </div>
+  {% if estimated_1rm %}
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    {% for group, group_e1rm in e1rm_by_group.items() %}
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding-left:2px;">{{ group }}</div>
+      <div class="card card-flush">
+        <table class="tbl">
+          <thead><tr>
+            <th style="min-width:120px;">Exercise</th>
+            <th class="r">Est. 1RM</th>
+            <th class="r">Est. 3RM</th>
+            <th class="r">Est. 5RM</th>
+            <th class="r">Based On</th>
+            <th class="r">Date</th>
+          </tr></thead>
+          <tbody>
+            {% for name, e in group_e1rm.items() %}
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><svg style="width:13px;height:13px;color:#a855f7;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg><span style="font-weight:600;">{{ name }}</span></div></td>
+              <td class="r">
+                <span style="font-size:15px;font-weight:800;color:#a78bfa;">{{ e.estimated_1rm }}</span>
+                <span style="font-size:11px;color:var(--text-3);margin-left:2px;">{{ e.unit }}</span>
+              </td>
+              <td class="r">
+                <span style="font-size:15px;font-weight:700;color:#34d399;">{{ e.estimated_3rm }}</span>
+                <span style="font-size:11px;color:var(--text-3);margin-left:2px;">{{ e.unit }}</span>
+              </td>
+              <td class="r">
+                <span style="font-size:15px;font-weight:700;color:#ff5500;">{{ e.estimated_5rm }}</span>
+                <span style="font-size:11px;color:var(--text-3);margin-left:2px;">{{ e.unit }}</span>
+              </td>
+              <td class="r" style="color:var(--text-2);font-size:13px;">{{ e.weight }} {{ e.unit }} × {{ e.reps }}</td>
+              <td class="r" style="color:var(--text-3);font-size:13px;">{{ e.date | format_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-3);">No data yet — log some weighted sets to see estimated 1RMs.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:64px;">
+  <div style="margin-bottom:12px;"><svg style="width:40px;height:40px;color:var(--text-3);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg></div>
+  <p style="color:var(--text-3);">No PRs yet — log some workouts to start tracking records.</p>
+  <a href="/workouts/new" class="btn btn-primary" style="margin-top:16px;">Log a Workout</a>
+</div>
+{% endif %}
+
+<!-- Cardio -->
+<div id="tab-cardio" class="pr-panel" style="display:none;">
+  {% if cardio_prs %}
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);">Longest Run</div>
+        {% if cardio_prs.longest_run %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">{{ cardio_prs.longest_run.date | format_date }}</div>
+        {% endif %}
+      </div>
+      {% if cardio_prs.longest_run %}
+      <div style="text-align:right;">
+        <span style="font-size:20px;font-weight:800;color:#34d399;">{{ cardio_prs.longest_run.distance }}</span>
+        <span style="font-size:12px;color:var(--text-3);margin-left:2px;">{{ cardio_prs.longest_run.unit }}</span>
+      </div>
+      {% else %}
+      <div style="font-size:13px;color:var(--text-3);">No runs logged</div>
+      {% endif %}
+    </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);">Fastest Pace (Run)</div>
+        {% if cardio_prs.fastest_pace %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">{{ cardio_prs.fastest_pace.distance }} {{ cardio_prs.fastest_pace.unit }} · {{ cardio_prs.fastest_pace.date | format_date }}</div>
+        {% endif %}
+      </div>
+      {% if cardio_prs.fastest_pace %}
+      <div style="text-align:right;">
+        <span style="font-size:20px;font-weight:800;color:#ff5500;">{{ "%d:%02d"|format(cardio_prs.fastest_pace.pace | int, ((cardio_prs.fastest_pace.pace % 1) * 60) | int) }}</span>
+        <span style="font-size:12px;color:var(--text-3);margin-left:2px;">/mi</span>
+      </div>
+      {% else %}
+      <div style="font-size:13px;color:var(--text-3);">No runs logged</div>
+      {% endif %}
+    </div>
+    {% if cardio_prs.most_calories %}
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);">Most Calories Burned</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">{{ cardio_prs.most_calories.activity }} · {{ cardio_prs.most_calories.date | format_date }}</div>
+      </div>
+      <div style="text-align:right;">
+        <span style="font-size:20px;font-weight:800;color:#f59e0b;">{{ cardio_prs.most_calories.calories }}</span>
+        <span style="font-size:12px;color:var(--text-3);margin-left:2px;">cal</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <p style="color:var(--text-3);">No cardio sessions logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block head %}
+<style>
+  .pr-tab {
+    padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04); color: var(--text-3);
+    font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0;
+  }
+  .pr-tab:hover { background: rgba(255,255,255,0.08); color: var(--text); border-color: rgba(255,255,255,0.15); }
+  .pr-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 12px rgba(255,85,0,.35); }
+  .card-flush { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .tbl { min-width: 380px; }
+  @media (max-width: 480px) {
+    .tbl th, .tbl td { padding: 10px 8px; font-size: 12px; }
+    .tbl td span[style*="font-size:16px"] { font-size: 14px !important; }
+    .tbl td span[style*="font-size:15px"] { font-size: 13px !important; }
+  }
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.pr-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.pr-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+function showRecent(window, btn) {
+  document.querySelectorAll('.recent-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('recent-30-btn').classList.remove('active');
+  document.getElementById('recent-90-btn').classList.remove('active');
+  document.getElementById('recent-' + window).style.display = 'block';
+  btn.classList.add('active');
+}
+
+const prTimeline = {{ pr_timeline | tojson }};
+let historyChart = null;
+function showHistory(name) {
+  const events = prTimeline[name] || [];
+  document.getElementById('historyTitle').textContent = name + ' — Est. 1RM Progression';
+  const ctx = document.getElementById('historyChart').getContext('2d');
+  if (historyChart) historyChart.destroy();
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: events.map(e => e.date),
+      datasets: [{
+        label: 'Est. 1RM',
+        data: events.map(e => e.e1rm),
+        borderColor: '#a855f7',
+        backgroundColor: 'rgba(168,85,247,0.15)',
+        borderWidth: 2,
+        tension: 0.25,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: '#a855f7',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, grid: { color: chartColors().grid } }
+      }
+    }
+  });
+  historyModal.showModal();
+}
+</script>
+{% endblock %}

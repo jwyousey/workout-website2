@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{{ workout.name or 'Workout' }} — WorkoutTracker{% endblock %}
+{% block header_title %}{{ workout.name or 'Workout' }}{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+  <a href="/workouts" style="color:var(--text-3);display:flex;align-items:center;transition:color .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-3)'">
+    <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+      <span class="badge {{ workout.name | workout_type_class }}">{{ workout.name | workout_type_label }}</span>
+      <h1 style="font-size:21px;font-weight:800;color:var(--text);letter-spacing:-.3px;">{{ workout.name or 'Workout' }}</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px;">
+      <p style="font-size:13px;color:var(--text-3);margin:0;">{{ workout.date | format_date }}</p>
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;color:var(--text-3);">{{ total_sets }} sets</span>
+      {% if total_volume > 0 %}
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text-2);">{{ "{:,.0f}".format(total_volume) }} lbs total</span>
+      {% endif %}
+      {% if workout.duration_min %}
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text-2);">{{ workout.duration_min }} min</span>
+      {% endif %}
+      {% if workout.rating %}
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;color:#fcd34d;">{% for i in range(workout.rating) %}★{% endfor %}{% for i in range(5 - workout.rating) %}<span style="color:var(--text-3);">★</span>{% endfor %}</span>
+      {% endif %}
+    </div>
+  </div>
+  <button onclick="saveAsTemplate()" class="btn btn-ghost" style="font-size:13px;padding:7px 14px;" title="Save as reusable template">
+    <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>Template
+  </button>
+  <form method="POST" action="/workouts/{{ workout.id }}/repeat" style="display:inline;">
+    <button type="submit" class="btn btn-ghost" style="font-size:13px;padding:7px 14px;" title="Copy this workout to today">
+      <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Repeat
+    </button>
+  </form>
+  <a href="/workouts/{{ workout.id }}/edit" class="btn" style="font-size:13px;padding:7px 14px;">Edit</a>
+  <button onclick="if(confirm('Delete this workout?'))fetch('/workouts/{{ workout.id }}/delete',{method:'POST'}).then(()=>location.href='/workouts')" class="btn btn-danger" style="font-size:13px;padding:7px 14px;">Delete</button>
+</div>
+
+<!-- Inline notes -->
+<div id="notesDisplay" class="card" style="margin-bottom:14px;border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.07);cursor:pointer;{% if not workout.notes %}opacity:.5;{% endif %}" onclick="startEditNotes()" title="Click to edit notes">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <svg style="width:13px;height:13px;color:#fcd34d;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    <p id="notesText" style="font-size:14px;color:#fcd34d;font-style:italic;margin:0;">{{ workout.notes or 'Add notes…' }}</p>
+  </div>
+</div>
+<div id="notesEdit" style="display:none;margin-bottom:14px;">
+  <textarea id="notesTextarea" class="input" style="resize:vertical;min-height:72px;line-height:1.5;border-color:rgba(245,158,11,.4);" placeholder="How'd it go? Anything to note…">{{ workout.notes or '' }}</textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button onclick="saveNotes()" class="btn btn-primary" style="font-size:12px;padding:6px 16px;">Save</button>
+    <button onclick="cancelEditNotes()" class="btn btn-ghost" style="font-size:12px;padding:6px 16px;">Cancel</button>
+  </div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;">
+  {% for ex_name, sets in exercises.items() %}
+  {% set pr = prs.get(ex_name) %}
+  {% set sg = superset_groups.get(ex_name) %}
+  <div class="card" {% if sg %}style="border-left:3px solid #8b5cf6;"{% endif %}>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <h2 style="font-size:15px;font-weight:700;">{{ ex_name }}</h2>
+        {% if sg %}<span style="font-size:10px;font-weight:700;color:#8b5cf6;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;">SS</span>{% endif %}
+      </div>
+      {% if pr and pr.id == sets[0].id %}
+      <span style="background:rgba(251,191,36,.15);color:#fcd34d;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;"><svg style="width:10px;height:10px;margin-right:3px;display:inline;vertical-align:-1px;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PR</span>
+      {% endif %}
+    </div>
+    {% if sets[0].exercise_note %}
+    <div style="font-size:12px;color:var(--text-3);font-style:italic;margin-bottom:10px;">{{ sets[0].exercise_note }}</div>
+    {% endif %}
+    <table class="tbl" style="font-size:13px;">
+      <thead><tr>
+        <th style="width:36px;">Set</th>
+        <th class="r">Reps</th>
+        <th class="r">Weight</th>
+        <th class="r">Effort</th>
+      </tr></thead>
+      <tbody>
+        {% for s in sets %}
+        <tr {% if pr and s.id == pr.id %}style="background:rgba(251,191,36,.07);"{% elif s.is_warmup %}style="opacity:.5;"{% endif %}>
+          <td style="color:var(--text-3);">{% if s.is_warmup %}<span style="font-size:9px;color:#f59e0b;font-weight:700;" title="Warm-up">W</span>{% else %}{{ s.set_number }}{% endif %}</td>
+          <td class="r">{{ s.reps or '—' }}</td>
+          <td class="r" style="font-weight:700;color:{% if pr and s.id == pr.id %}#fcd34d{% else %}var(--text){% endif %};">
+            {% if s.weight %}{{ s.weight }} <span style="font-size:11px;color:var(--text-3);font-weight:400;">{{ s.unit }}</span>{% else %}—{% endif %}
+          </td>
+          <td class="r" style="color:var(--text-3);">{{ s.rpe or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const WORKOUT_ID = {{ workout.id }};
+
+async function saveAsTemplate() {
+  const name = prompt('Template name:', '{{ workout.name or "" }}');
+  if (name === null) return;
+  const res = await fetch(`/workouts/${WORKOUT_ID}/save-template`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name.trim() || '{{ workout.name or "My Template" }}'})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const btn = event.currentTarget;
+    btn.textContent = '✓ Saved!';
+    btn.style.color = '#34d399';
+    setTimeout(() => { btn.innerHTML = '<svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>Template'; btn.style.color = ''; }, 2000);
+  }
+}
+
+function startEditNotes() {
+  document.getElementById('notesDisplay').style.display = 'none';
+  document.getElementById('notesEdit').style.display = 'block';
+  document.getElementById('notesTextarea').focus();
+}
+function cancelEditNotes() {
+  document.getElementById('notesEdit').style.display = 'none';
+  document.getElementById('notesDisplay').style.display = 'block';
+}
+async function saveNotes() {
+  const notes = document.getElementById('notesTextarea').value.trim();
+  await fetch(`/workouts/${WORKOUT_ID}/notes`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({notes})
+  });
+  document.getElementById('notesText').textContent = notes || 'Add notes…';
+  document.getElementById('notesDisplay').style.opacity = notes ? '1' : '0.5';
+  cancelEditNotes();
+}
+</script>
+{% endblock %}

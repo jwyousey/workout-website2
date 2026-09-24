@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% block title %}Stats — WorkoutTracker{% endblock %}
+{% block header_color %}#ff5500{% endblock %}{% block header_title %}Stats{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:20px;">
+  <h1 class="page-title">Stats</h1>
+  <p class="page-sub">All-time numbers</p>
+</div>
+
+{% set type_colors = {
+  "Push":             "#3b82f6",
+  "Pull":             "#10b981",
+  "Legs":             "#f59e0b",
+  "Chest & Back":     "#8b5cf6",
+  "Shoulders & Arms": "#ec4899",
+} %}
+
+<!-- Top stat cards -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#ff5500;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Lifts</div>
+    <div class="stat-num" style="color:#93c5fd;">{{ total_workouts }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#10b981;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Total Sets</div>
+    <div class="stat-num" style="color:#6ee7b7;">{{ total_sets }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Total Reps</div>
+    <div class="stat-num" style="color:#fcd34d;">{{ "{:,}".format(total_reps) }}</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#8b5cf6;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Volume Lifted</div>
+    <div class="stat-num" data-no-animate style="color:#c4b5fd;font-size:22px;">{{ volume_label }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#ec4899;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Streak</div>
+    {% if streak_weeks %}
+    <div class="stat-num" style="color:#f9a8d4;">{{ streak_weeks }}<span style="font-size:13px;color:var(--text-3);font-weight:500;margin-left:4px;">wks</span></div>
+    {% else %}
+    <div class="stat-num" data-no-animate style="color:var(--text-3);">—</div>
+    {% endif %}
+  </div>
+  <div class="stat-card" style="--stat-accent:#06b6d4;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Last Lift</div>
+    <div class="stat-num" data-no-animate style="color:{% if days_since and days_since > 7 %}#f87171{% else %}#67e8f9{% endif %};font-size:22px;">
+      {% if days_since == 0 %}Today
+      {% elif days_since == 1 %}Yesterday
+      {% elif days_since %}{{ days_since }}<span style="font-size:13px;color:var(--text-3);font-weight:500;margin-left:2px;">d ago</span>
+      {% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Period breakdown -->
+<div style="margin-bottom:8px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">Activity by Period</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px;" class="stat-grid">
+  {% for label, workouts_count, vol, sets, reps in [
+    ("This Week",  wc.week,  pr.vol_week,  pr.sets_week,  pr.reps_week),
+    ("This Month", wc.month, pr.vol_month, pr.sets_month, pr.reps_month),
+    ("This Year",  wc.year,  pr.vol_year,  pr.sets_year,  pr.reps_year),
+  ] %}
+  <div class="stat-card" style="--stat-accent:#ff5500;padding:14px 16px;{% if not workouts_count %}opacity:0.45;{% endif %}">
+    <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">{{ label }}</div>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      <div>
+        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Lifts</div>
+        <div style="font-size:18px;font-weight:700;color:{% if workouts_count %}#c4b5fd{% else %}var(--text-3){% endif %};">{{ workouts_count or 0 }}</div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Volume</div>
+        <div style="font-size:14px;font-weight:700;color:{% if workouts_count %}#93c5fd{% else %}var(--text-3){% endif %};">{{ volume_label_fn(vol) }}</div>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <div>
+          <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Sets</div>
+          <div style="font-size:14px;font-weight:700;color:{% if workouts_count %}#6ee7b7{% else %}var(--text-3){% endif %};">{{ sets or 0 }}</div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Reps</div>
+          <div style="font-size:14px;font-weight:700;color:{% if workouts_count %}#fcd34d{% else %}var(--text-3){% endif %};">{{ "{:,}".format(reps|int) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div style="margin-bottom:16px;"></div>
+
+<!-- Averages row -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#ff5500;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Lifts / Week</div>
+    <div class="stat-num" style="color:#93c5fd;">{{ avg_workouts_per_week }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#10b981;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Sets / Lift</div>
+    <div class="stat-num" style="color:#6ee7b7;">{{ avg_sets_per_workout }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#f59e0b;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Longest Gap</div>
+    <div class="stat-num" style="color:#fcd34d;">{{ longest_gap }}<span style="font-size:13px;color:var(--text-3);font-weight:500;margin-left:4px;">days</span></div>
+  </div>
+</div>
+
+<!-- Two-column section -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="two-col">
+
+  <!-- Workout type breakdown -->
+  <div class="stat-card" style="--stat-accent:#ff5500;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Lift Type Breakdown</div>
+    {% set total_typed = namespace(n=0) %}
+    {% for name, count in type_counts %}{% set total_typed.n = total_typed.n + count %}{% endfor %}
+    {% for name, count in type_counts %}
+    {% set color = type_colors.get(name, "#64748b") %}
+    {% set pct = ((count / total_typed.n) * 100)|round(1) if total_typed.n else 0 %}
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;color:{{ color }};">{{ name }}</span>
+        <span style="font-size:12px;color:var(--text-3);">{{ count }} &nbsp;<span style="color:var(--text-3);font-size:11px;">{{ pct }}%</span></span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:{{ pct }}%;background:{{ color }};border-radius:3px;transition:width .4s;"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Day of week heatmap -->
+  <div class="stat-card" style="--stat-accent:#10b981;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Lifts by Day of Week</div>
+    {% set max_dow = namespace(n=1) %}
+    {% for d in dow_data %}{% if d.count > max_dow.n %}{% set max_dow.n = d.count %}{% endif %}{% endfor %}
+    {% for d in dow_data %}
+    {% set pct = ((d.count / max_dow.n) * 100)|round(0)|int if max_dow.n else 0 %}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:600;color:var(--text-3);width:28px;">{{ d.day }}</span>
+      <div style="flex:1;height:18px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:{{ pct }}%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;transition:width .4s;min-width:{% if d.count > 0 %}4px{% else %}0{% endif %};"></div>
+      </div>
+      <span style="font-size:12px;color:var(--text-2);width:20px;text-align:right;">{{ d.count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Monthly workouts chart -->
+<div class="stat-card" style="--stat-accent:#ff5500;padding:18px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;">Lifts per Month (last 12 months)</div>
+  <div style="display:flex;align-items:flex-end;gap:6px;height:80px;">
+    {% set max_mo = namespace(n=1) %}
+    {% for m in monthly %}{% if m.c > max_mo.n %}{% set max_mo.n = m.c %}{% endif %}{% endfor %}
+    {% for m in monthly %}
+    {% set h = ((m.c / max_mo.n) * 72)|round(0)|int %}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <span style="font-size:9px;color:var(--text-3);">{{ m.c }}</span>
+      <div style="width:100%;height:{{ h }}px;background:#ff5500;border-radius:3px 3px 0 0;min-height:{% if m.c > 0 %}4px{% else %}0{% endif %};transition:height .4s;"></div>
+      <span style="font-size:9px;color:var(--text-3);white-space:nowrap;">{{ m.mo[5:] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if mg_vol_data %}
+<!-- Weekly volume by muscle group -->
+<div class="stat-card" style="--stat-accent:#10b981;padding:18px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;">Weekly Volume by Muscle Group (last 8 weeks)</div>
+  <div style="position:relative;height:200px;"><canvas id="mgVolChart"></canvas></div>
+</div>
+{% endif %}
+
+<!-- Top exercises + volume -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="two-col">
+
+  <div class="stat-card" style="--stat-accent:#f59e0b;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Most Performed Exercises</div>
+    {% for ex in top_exercises %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="font-size:12px;color:var(--text-2);">{{ loop.index }}. {{ ex.exercise_name }}</span>
+      <span style="font-size:12px;font-weight:600;color:#fcd34d;">{{ ex.c }} sets</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="stat-card" style="--stat-accent:#8b5cf6;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Most Volume by Exercise</div>
+    {% for ex in top_volume_exercises %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="font-size:12px;color:var(--text-2);">{{ loop.index }}. {{ ex.exercise_name }}</span>
+      <span style="font-size:12px;font-weight:600;color:#c4b5fd;">{{ "{:,.0f}".format(ex.v) }} lbs</span>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Estimated 1RMs + muscle group split -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="two-col">
+
+  <div class="stat-card" style="--stat-accent:#ec4899;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Estimated 1RMs (Epley)</div>
+    {% for ex in e1rm_rows %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="font-size:12px;color:var(--text-2);">{{ loop.index }}. {{ ex.exercise_name }}</span>
+      <span style="font-size:12px;font-weight:600;color:#f9a8d4;">~{{ ex.e1rm|round(1) }} {{ ex.unit or 'lbs' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="stat-card" style="--stat-accent:#06b6d4;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Volume by Muscle Group</div>
+    {% set max_mg = namespace(n=1) %}
+    {% for mg in mg_rows %}{% if mg.v and mg.v > max_mg.n %}{% set max_mg.n = mg.v %}{% endif %}{% endfor %}
+    {% for mg in mg_rows %}
+    {% if mg.v %}
+    {% set pct = ((mg.v / max_mg.n) * 100)|round(0)|int %}
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:11px;color:var(--text-2);">{{ mg.muscle_group or 'Other' }}</span>
+        <span style="font-size:11px;color:var(--text-3);">{{ "{:,.0f}".format(mg.v) }}</span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:{{ pct }}%;background:linear-gradient(90deg,#06b6d4,#67e8f9);border-radius:3px;"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Cardio summary -->
+{% if total_cardio > 0 %}
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
+  <div class="stat-card" style="--stat-accent:#10b981;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Cardio Sessions</div>
+    <div class="stat-num" style="color:#6ee7b7;">{{ total_cardio }}</div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#10b981;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Total Cardio Time</div>
+    <div class="stat-num" style="color:#6ee7b7;font-size:22px;">{{ cardio_mins }}<span style="font-size:13px;color:var(--text-3);margin-left:4px;">min</span></div>
+  </div>
+  <div class="stat-card" style="--stat-accent:#10b981;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Avg Session</div>
+    <div class="stat-num" style="color:#6ee7b7;font-size:22px;">{{ (cardio_mins / total_cardio)|round(0)|int }}<span style="font-size:13px;color:var(--text-3);margin-left:4px;">min</span></div>
+  </div>
+</div>
+{% endif %}
+
+<!-- PRs + Most Improved + Biggest Workout -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="two-col">
+
+  <div class="stat-card" style="--stat-accent:#f59e0b;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">PRs Hit</div>
+    <div style="display:flex;gap:16px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">This Month</div>
+        <div style="font-size:32px;font-weight:800;color:#fcd34d;">{{ pr_counts.this_month or 0 }}</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,0.07);"></div>
+      <div>
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">This Year</div>
+        <div style="font-size:32px;font-weight:800;color:#fcd34d;">{{ pr_counts.this_year or 0 }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if biggest_workout %}
+  <div class="stat-card" style="--stat-accent:#8b5cf6;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Biggest Lift</div>
+    <div style="font-size:26px;font-weight:800;color:#c4b5fd;">{{ "{:,.0f}".format(biggest_workout.vol) }} lbs</div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:4px;">{{ biggest_workout.name }} · {{ biggest_workout.date | format_date_short }}</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Most improved lift -->
+{% if improved_lift %}
+<div class="stat-card" style="--stat-accent:#10b981;padding:18px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Most Improved Lift</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div style="font-size:18px;font-weight:700;color:var(--text);">{{ improved_lift.name }}</div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">Start e1RM</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text-2);">{{ improved_lift.from }} lbs</div>
+      </div>
+      <div style="font-size:20px;color:#10b981;">→</div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">Current e1RM</div>
+        <div style="font-size:18px;font-weight:700;color:#6ee7b7;">{{ improved_lift.to }} lbs</div>
+      </div>
+      <div style="background:#10b98122;border:1px solid #10b98144;border-radius:20px;padding:4px 14px;">
+        <span style="font-size:16px;font-weight:800;color:#10b981;">+{{ improved_lift.pct }}%</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Avg weight trend per exercise -->
+{% if trends %}
+<div class="stat-card" style="--stat-accent:#ff5500;padding:18px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">Avg Weight Trend</div>
+  <div style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Last 30 days vs previous 30 days</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" class="two-col">
+    {% for t in trends %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:rgba(255,255,255,0.03);border-radius:8px;">
+      <span style="font-size:11px;color:var(--text-2);">{{ t.name }}</span>
+      <span style="font-size:12px;font-weight:700;{% if t.delta > 0 %}color:#10b981;{% elif t.delta < 0 %}color:#f87171;{% else %}color:var(--text-3);{% endif %}">
+        {% if t.delta > 0 %}↑{% elif t.delta < 0 %}↓{% else %}→{% endif %}
+        {{ t.delta|abs }}%
+        <span style="font-size:10px;font-weight:400;color:var(--text-3);">({{ t.recent }} lbs)</span>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Sets this week by muscle group + neglected -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" class="two-col">
+
+  <div class="stat-card" style="--stat-accent:#f59e0b;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;">Sets This Week by Muscle</div>
+    {% if mg_week_rows %}
+      {% set max_mgw = namespace(n=1) %}
+      {% for r in mg_week_rows %}{% if r.c > max_mgw.n %}{% set max_mgw.n = r.c %}{% endif %}{% endfor %}
+      {% for r in mg_week_rows %}
+      {% set pct = ((r.c / max_mgw.n)*100)|round(0)|int %}
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:11px;color:var(--text-2);">{{ r.muscle_group or 'Other' }}</span>
+          <span style="font-size:11px;font-weight:600;color:#fcd34d;">{{ r.c }}</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:{{ pct }}%;background:#f59e0b;border-radius:3px;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="color:var(--text-3);font-size:13px;">No lifts logged this week yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="stat-card" style="--stat-accent:#f87171;padding:18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">Most Neglected</div>
+    <div style="font-size:11px;color:var(--text-3);margin-bottom:14px;">Fewest sets in last 30 days</div>
+    {% for r in neglected_rows %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <span style="font-size:13px;color:var(--text-2);">{{ r.muscle_group or 'Other' }}</span>
+      <span style="font-size:13px;font-weight:600;color:#f87171;">{{ r.c }} sets</span>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Warlock milestone -->
+<div class="stat-card" style="--stat-accent:#f59e0b;padding:20px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Warlocks Lifted</div>
+  <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:36px;font-weight:800;color:#fcd34d;">{{ warlocks_lifted }}</div>
+    <div style="font-size:13px;color:var(--text-3);">2021 RAM 1500 Warlocks</div>
+  </div>
+  <div style="font-size:11px;color:var(--text-3);margin-top:6px;">{{ "{:,.0f}".format(total_volume) }} lbs total ÷ {{ "{:,}".format(warlock_lbs) }} lbs per Warlock (Quad Cab 4x4)</div>
+</div>
+
+<style>
+@media (max-width: 600px) {
+  .two-col { grid-template-columns: 1fr !important; }
+}
+</style>
+
+{% endblock %}
+{% block scripts %}
+{% if mg_vol_data %}
+<script>
+const mgColors = {'Chest':'#3b82f6','Back':'#10b981','Legs':'#f59e0b','Front Delts':'#ec4899','Side Delts':'#f472b6','Rear Delts':'#fb7185','Biceps':'#8b5cf6','Triceps':'#a78bfa','Traps':'#06b6d4','Forearms':'#14b8a6'};
+const mgLabels = {{ mg_vol_weeks | map(attribute='label') | list | tojson }};
+const mgData = {{ mg_vol_data | tojson }};
+const datasets = Object.entries(mgData).map(([mg, vals]) => ({
+  label: mg,
+  data: vals,
+  backgroundColor: mgColors[mg] || '#64748b',
+  borderRadius: 2,
+}));
+new Chart(document.getElementById('mgVolChart').getContext('2d'), {
+  type: 'bar',
+  data: { labels: mgLabels, datasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+    scales: {
+      x: { stacked: true, ticks: { font: { size: 10 } }, grid: { display: false } },
+      y: { stacked: true, ticks: { font: { size: 10 }, callback: v => v >= 1000 ? (v/1000)+'k' : v }, grid: { color: chartColors().grid } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

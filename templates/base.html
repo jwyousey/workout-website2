@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Progress Log{% endblock %}</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/static/icon.svg" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Progress Log" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script>
+  function chartColors() {
+    const s = getComputedStyle(document.documentElement);
+    return { grid: s.getPropertyValue('--chart-grid').trim(), tick: s.getPropertyValue('--chart-tick').trim(), tooltip: s.getPropertyValue('--chart-tooltip-bg').trim() };
+  }
+  document.addEventListener('DOMContentLoaded', () => { Chart.defaults.color = chartColors().tick; });
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #000000;
+      --surface:   #0f0f0f;
+      --surface2:  #080808;
+      --card:      #141414;
+      --border:    rgba(255,255,255,0.08);
+      --border-2:  rgba(255,255,255,0.14);
+      --accent:    #ff5500;
+      --accent-dk: #e04a00;
+      --accent-gl: rgba(255,85,0,0.15);
+      --text:      #ffffff;
+      --text-2:    #888888;
+      --text-3:    #777777;
+      --sidebar:   #050505;
+      --sidebar-border: rgba(255,85,0,0.15);
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --purple:    #a855f7;
+      --pink:      #ec4899;
+      --chart-grid: rgba(255,255,255,0.05);
+      --chart-tick: #4a6070;
+      --chart-tooltip-bg: #141414;
+    }
+    html.light {
+      --bg:        #e8e4df;
+      --surface:   #f5f2ef;
+      --surface2:  #dedad4;
+      --card:      #f5f2ef;
+      --border:    rgba(0,0,0,0.1);
+      --border-2:  rgba(0,0,0,0.16);
+      --text:      #0a0a0a;
+      --text-2:    #555555;
+      --text-3:    #999999;
+      --sidebar:   #dedad4;
+      --sidebar-border: rgba(255,85,0,0.2);
+      --chart-grid: rgba(0,0,0,0.08);
+      --chart-tick: #6b7280;
+      --chart-tooltip-bg: #f5f2ef;
+    }
+    html.light body { background: var(--bg); }
+    html.light .bottom-nav { background: rgba(232,228,223,0.97); border-top-color: rgba(0,0,0,0.1); }
+    html.light .bottom-nav a { color: var(--text-3); }
+    html.light .bottom-nav a.active { color: #e04a00; background: rgba(255,85,0,0.1); }
+    html.light dialog { background: var(--surface); }
+    html.light .topbar { background: rgba(232,228,223,0.95) !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+    html.light .hdr-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: var(--text-2); }
+    html.light .hdr-btn:hover { background: rgba(0,0,0,0.08); }
+    html.light ::-webkit-scrollbar-track { background: var(--bg); }
+    html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Barlow', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Subtle diagonal texture on dark bg */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 40px,
+        rgba(255,255,255,0.012) 40px,
+        rgba(255,255,255,0.012) 41px
+      );
+    }
+    html.light body::before { display: none; }
+    .layout, .page, dialog, .card, .stat-card { position: relative; z-index: 1; }
+    a { text-decoration: none; color: inherit; }
+
+    /* Layout */
+    .layout { display: flex; height: 100vh; min-height: 100vh; }
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      background: var(--sidebar);
+      border-right: 2px solid var(--sidebar-border);
+      display: flex; flex-direction: column;
+    }
+    .main { flex: 1; overflow: auto; }
+    .page { max-width: 900px; margin: 0 auto; padding: 36px 32px; }
+    @media (max-width: 1024px) and (min-width: 701px) {
+      .page { padding: 24px 20px; }
+    }
+
+    /* Sidebar */
+    .sidebar-logo { padding: 22px 16px 20px; border-bottom: 1px solid var(--sidebar-border); font-size: 18px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase; font-family: 'Barlow Condensed', sans-serif; }
+    .sidebar-logo span { color: var(--accent); }
+    .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--sidebar-border); font-size: 11px; color: var(--text-3); letter-spacing: .05em; text-transform: uppercase; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; color: var(--text-2); transition: all .15s; cursor: pointer; letter-spacing: .03em; text-transform: uppercase; }
+    .nav-link:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-link.active { background: rgba(255,85,0,0.12); color: #ff7733; border-left: 3px solid var(--accent); padding-left: 9px; }
+    .nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid rgba(255,85,0,0.5);
+      border-radius: 0;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.6);
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+      transition: box-shadow .2s;
+    }
+    .card:hover {
+      box-shadow: 0 0 0 1px rgba(255,85,0,0.35), 0 4px 32px rgba(255,85,0,0.12);
+    }
+    .card-flush { padding: 0; overflow: hidden; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px; border-radius: 3px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all .15s; font-family: inherit; border: none; letter-spacing: .08em; text-transform: uppercase; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-dk); transform: translateY(-1px); box-shadow: 0 4px 24px rgba(255,85,0,.5); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text-2); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+    .btn-danger { background: #cc2200; color: #fff; }
+    .btn-danger:hover { background: #aa1a00; }
+
+    /* Inputs */
+    .input { width: 100%; min-width: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 9px 12px; font-size: 14px; color: var(--text); outline: none; transition: border-color .15s; font-family: inherit; }
+    input[type="date"].input { -webkit-appearance: none; appearance: none; -webkit-min-logical-width: 0; }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-gl); }
+    .input option { background: var(--surface2); }
+    .label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 6px; letter-spacing: .08em; text-transform: uppercase; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .type-push      { background: rgba(59,130,246,.18);  color: #93c5fd; }
+    .type-pull      { background: rgba(16,185,129,.18);  color: #6ee7b7; }
+    .type-legs      { background: rgba(245,158,11,.18);  color: #fcd34d; }
+    .type-chest     { background: rgba(139,92,246,.18);  color: #c4b5fd; }
+    .type-shoulders { background: rgba(236,72,153,.18);  color: #f9a8d4; }
+    .type-arms      { background: rgba(236,72,153,.18);  color: #f9a8d4; }
+    .type-other     { background: rgba(255,255,255,.08); color: var(--text-2); }
+
+    /* Stat cards */
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--stat-accent, var(--accent)); border-radius: 0; padding: 18px 20px; box-shadow: 0 4px 24px rgba(0,0,0,.6); position: relative; overflow: hidden; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); transition: box-shadow .2s; }
+    .stat-card:hover { box-shadow: 0 0 0 1px rgba(255,85,0,0.35), 0 4px 32px rgba(255,85,0,0.12); }
+    .stat-card::before { display: none; }
+    .stat-num { font-size: 36px; font-weight: 900; line-height: 1; font-family: 'Barlow Condensed', sans-serif; }
+    @media (max-width: 700px) {
+      .wo-info-grid { grid-template-columns: 1fr !important; }
+      .wo-info-grid > div { min-width: 0; }
+      .stat-grid { grid-template-columns: repeat(3,1fr) !important; }
+      .stat-card { padding: 14px 12px; }
+      .stat-num { font-size: 24px; }
+    }
+
+    /* Table */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .tbl th { text-align: left; padding: 10px 20px; font-size: 10px; font-weight: 800; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; background: var(--surface2); border-bottom: 1px solid var(--border); }
+    .tbl th.r, .tbl td.r { text-align: right; }
+    .tbl td { padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: rgba(255,85,0,.05); }
+
+    /* Dialog */
+    dialog { background: var(--surface); border: 1px solid rgba(255,85,0,0.2); border-radius: 4px; box-shadow: 0 24px 80px rgba(0,0,0,.9); padding: 24px; width: min(340px, calc(100vw - 32px)); color: var(--text); }
+    dialog::backdrop { background: rgba(0,0,0,.8); }
+
+    /* Page header */
+    .page-title { font-size: 38px; font-weight: 900; color: var(--text); letter-spacing: 1px; font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
+    .page-sub   { font-size: 13px; color: var(--text-3); margin-top: 4px; letter-spacing: .04em; }
+
+    /* Header buttons */
+    .hdr-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:var(--text-2);transition:all .15s;text-decoration:none;white-space:nowrap;letter-spacing:.06em;text-transform:uppercase; }
+    .hdr-btn:hover { background:rgba(255,255,255,0.09);color:var(--text); }
+    .hdr-btn-primary { background:var(--accent);color:#fff;border-color:var(--accent); }
+    .hdr-btn-primary:hover { background:var(--accent-dk);box-shadow:0 2px 16px rgba(255,85,0,.5); }
+    @media (max-width:700px) { .hdr-label { display:none; } .hdr-btn { padding:7px 9px; } }
+
+    /* Scan lines on cards */
+    .card::after, .stat-card::after {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none; z-index: 0; border-radius: inherit;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.13) 2px,
+        rgba(0,0,0,0.13) 3px
+      );
+    }
+    html.light .card::after, html.light .stat-card::after { display: none; }
+
+    /* Nav glow pulse on active */
+    @keyframes nav-glow {
+      0%, 100% { box-shadow: inset 3px 0 0 var(--accent), 0 0 8px rgba(255,85,0,0); }
+      50%       { box-shadow: inset 3px 0 0 var(--accent), 0 0 12px rgba(255,85,0,0.3); }
+    }
+    .nav-link.active { animation: nav-glow 2.5s ease-in-out infinite; }
+    .nav-link:hover { background: rgba(255,255,255,0.05); color: var(--text); border-left: 3px solid rgba(255,85,0,0.3); padding-left: 9px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,85,0,.5); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,85,0,.8); }
+
+    /* Mobile */
+    .bottom-nav { display: none; }
+    @media (max-width: 700px) {
+      .sidebar { display: none; }
+      .layout { flex-direction: column; }
+      .main { padding-bottom: 72px; }
+      .page { padding: 16px; }
+      .bottom-nav {
+        display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+        background: rgba(5,5,5,0.97); backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(255,85,0,0.2);
+        height: 64px; padding: 0 4px;
+      }
+      .bottom-nav a {
+        flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 4px; font-size: 9px; font-weight: 800; color: var(--text-3);
+        transition: all .2s; border-radius: 4px; margin: 6px 2px; position: relative;
+        letter-spacing: .05em; text-transform: uppercase;
+      }
+      .bottom-nav a:hover { color: var(--text-2); background: rgba(255,255,255,0.04); }
+      .bottom-nav a.active {
+        color: #ff7733;
+        background: rgba(255,85,0,0.12);
+      }
+      .bottom-nav a.active svg { filter: drop-shadow(0 0 6px rgba(255,85,0,.7)); }
+      .bottom-nav svg { width: 20px; height: 20px; }
+      dialog { width: calc(100vw - 32px); }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo"><svg style="width:16px;height:16px;display:inline;vertical-align:-2px;margin-right:6px;" fill="currentColor" viewBox="0 0 24 24"><path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg><span>Progress</span> Log</div>
+    <div class="sidebar-nav">
+      <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        Dashboard
+      </a>
+      <a href="/workouts" class="nav-link {% if '/workouts' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h2m2-3v6m2-8v10m10-10v10m2-7v6m2-3h2M9 12h6"/></svg>
+        Lifts
+      </a>
+      <a href="/cardio" class="nav-link {% if '/cardio' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Cardio
+      </a>
+      <a href="/weight" class="nav-link {% if '/weight' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+        Body Weight
+      </a>
+      <a href="/prs" class="nav-link {% if '/prs' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+        PRs
+      </a>
+      <a href="/templates" class="nav-link {% if '/templates' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        Templates
+      </a>
+      <a href="/progress" class="nav-link {% if '/progress' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        Progress
+      </a>
+      <a href="/sleep" class="nav-link {% if '/sleep' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        Sleep
+      </a>
+      <a href="/exercises" class="nav-link {% if '/exercises' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        Exercises
+      </a>
+      <a href="/weekly-notes" class="nav-link {% if '/weekly-notes' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Weekly Notes
+      </a>
+      <a href="/stats" class="nav-link {% if '/stats' in request.path %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Stats
+      </a>
+    </div>
+    <div class="sidebar-footer">WorkoutTracker v1.0</div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- Top header bar -->
+    <div class="topbar" style="position:sticky;top:0;z-index:10;background:rgba(8,8,8,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 16px;display:flex;align-items:center;height:56px;gap:8px;">
+      <div style="flex:1;font-size:14px;font-weight:700;color:{% block header_color %}var(--text-2){% endblock %};letter-spacing:.04em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-size:15px;">
+        {% block header_title %}Progress Log{% endblock %}
+      </div>
+      <a href="/workouts/new" class="hdr-btn hdr-btn-primary" title="Log Lift">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span class="hdr-label">Log Lift</span>
+      </a>
+      <a href="/cardio" class="hdr-btn" title="Log Cardio" style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.3);color:#fcd34d;">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span class="hdr-label">Log Cardio</span>
+      </a>
+      <button onclick="weightModal.showModal()" class="hdr-btn" title="Log Weight" style="background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.3);color:#6ee7b7;">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5"/></svg>
+        <span class="hdr-label">Log Weight</span>
+      </button>
+      <button onclick="sleepModal.showModal()" class="hdr-btn" title="Log Sleep" style="background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.3);color:#c4b5fd;">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        <span class="hdr-label">Log Sleep</span>
+      </button>
+      <a href="/export" class="hdr-btn" title="Export">
+        <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span class="hdr-label">Export</span>
+      </a>
+      <button onclick="toggleTheme()" id="themeBtn" class="hdr-btn" title="Toggle light/dark mode">
+        <svg id="themeIcon" style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      </button>
+    </div>
+
+    <!-- Global weight modal -->
+    <dialog id="weightModal" onclick="if(event.target===this)this.close()">
+      <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;">Log Weight</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div><label class="label">Date</label><input type="date" id="wDate" class="input" /></div>
+        <div>
+          <label class="label">Weight</label>
+          <div style="display:flex;gap:8px;">
+            <input type="number" id="wValue" step="0.1" class="input" placeholder="e.g. 175.5" />
+            <select id="wUnit" class="input" style="width:72px;"><option>lbs</option><option>kg</option></select>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;">
+        <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveWeightGlobal()">Save</button>
+        <button class="btn btn-ghost" onclick="weightModal.close()">Cancel</button>
+      </div>
+    </dialog>
+    <!-- Global sleep modal -->
+    <dialog id="sleepModal" onclick="if(event.target===this)this.close()">
+      <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;">Log Sleep</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div><label class="label">Date</label><input type="date" id="slDate" class="input" /></div>
+        <div>
+          <label class="label">Duration</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="slHours" min="0" max="24" class="input" placeholder="hrs" style="width:80px;" />
+            <span style="color:var(--text-3);">h</span>
+            <input type="number" id="slMinutes" min="0" max="59" class="input" placeholder="min" style="width:80px;" />
+            <span style="color:var(--text-3);">m</span>
+          </div>
+        </div>
+        <div><label class="label">Sleep Score (0–100)</label><input type="number" id="slQuality" min="0" max="100" class="input" placeholder="e.g. 82" /></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;">
+        <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveSleepGlobal()">Save</button>
+        <button class="btn btn-ghost" onclick="sleepModal.close()">Cancel</button>
+      </div>
+    </dialog>
+    <script>
+    document.getElementById('wDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('slDate').value = new Date().toISOString().split('T')[0];
+    async function saveSleepGlobal() {
+      const date = document.getElementById('slDate').value;
+      const hours = parseInt(document.getElementById('slHours').value) || 0;
+      const minutes = parseInt(document.getElementById('slMinutes').value) || 0;
+      const quality = document.getElementById('slQuality').value;
+      if (!date) return alert('Please enter a date.');
+      const duration_min = hours * 60 + minutes || null;
+      const res = await fetch('/sleep/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date, duration_min, quality: quality ? parseInt(quality) : null}) });
+      if (res.ok) { sleepModal.close(); if (window.location.pathname === '/sleep') location.reload(); }
+      else { const err = await res.text(); alert('Error saving: ' + err); }
+    }
+    async function saveWeightGlobal() {
+      const date = document.getElementById('wDate').value;
+      const weight = parseFloat(document.getElementById('wValue').value);
+      const unit = document.getElementById('wUnit').value;
+      if (!date || isNaN(weight)) return alert('Please fill in all fields.');
+      await fetch('/weight/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date,weight,unit}) });
+      weightModal.close();
+      location.reload();
+    }
+    </script>
+    <div class="page">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+<script>
+  const moonSVG = `<path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>`;
+  const sunSVG  = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>`;
+  function applyTheme(light) {
+    document.documentElement.classList.toggle('light', light);
+    document.getElementById('themeIcon').innerHTML = light ? moonSVG : sunSVG;
+  }
+  function toggleTheme() {
+    const next = !document.documentElement.classList.contains('light');
+    localStorage.setItem('theme', next ? 'light' : 'dark');
+    applyTheme(next);
+  }
+  applyTheme(localStorage.getItem('theme') === 'light');
+
+  function localDateStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[type="date"][data-local-today]').forEach(el => {
+      el.value = localDateStr();
+    });
+  });
+
+  // Count-up animation — runs on all .stat-num elements automatically
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.stat-num').forEach(el => {
+      if (el.hasAttribute('data-no-animate')) return;
+      const firstNode = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (!firstNode) return;
+      const raw = firstNode.textContent.replace(/,/g, '').trim();
+      const target = parseFloat(raw);
+      if (isNaN(target) || target === 0) return;
+      const isFloat = raw.includes('.');
+      const numSpan = document.createElement('span');
+      firstNode.replaceWith(numSpan);
+      const duration = 800;
+      const start = performance.now();
+      function tick(now) {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        const val = target * ease;
+        numSpan.textContent = isFloat ? val.toFixed(1) : Math.round(val).toLocaleString();
+        if (p < 1) requestAnimationFrame(tick);
+        else numSpan.textContent = isFloat ? target.toFixed(1) : target.toLocaleString();
+      }
+      requestAnimationFrame(tick);
+    });
+  });
+</script>
+
+<!-- Mobile bottom nav -->
+<nav class="bottom-nav">
+  <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Home
+  </a>
+  <a href="/workouts" class="{% if '/workouts' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h2m2-3v6m2-8v10m10-10v10m2-7v6m2-3h2M9 12h6"/></svg>
+    Lifts
+  </a>
+  <a href="/cardio" class="{% if '/cardio' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    Cardio
+  </a>
+  <a href="/progress" class="{% if '/progress' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+    Progress
+  </a>
+  <a href="/prs" class="{% if '/prs' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+    PRs
+  </a>
+  <a href="/sleep" class="{% if '/sleep' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+    Sleep
+  </a>
+  <a href="/stats" class="{% if '/stats' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    Stats
+  </a>
+</nav>
+</body>
+</html>
