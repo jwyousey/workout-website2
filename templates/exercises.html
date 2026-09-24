@@ -56,16 +56,7 @@
     <div>
       <label class="label">Muscle Group</label>
       <select id="newExGroup" class="input">
-        <option>Chest</option>
-        <option>Back</option>
-        <option>Front Delts</option>
-        <option>Side Delts</option>
-        <option>Rear Delts</option>
-        <option>Triceps</option>
-        <option>Biceps</option>
-        <option>Forearms</option>
-        <option>Legs</option>
-        <option>Other</option>
+        {% for mg in muscle_groups %}<option>{{ mg }}</option>{% endfor %}
       </select>
     </div>
   </div>

@@ -374,7 +374,7 @@
 {% block scripts %}
 {% if mg_vol_data %}
 <script>
-const mgColors = {'Chest':'#3b82f6','Back':'#10b981','Legs':'#f59e0b','Front Delts':'#ec4899','Side Delts':'#f472b6','Rear Delts':'#fb7185','Biceps':'#8b5cf6','Triceps':'#a78bfa','Traps':'#06b6d4','Forearms':'#14b8a6'};
+const mgColors = {'Chest':'#3b82f6','Back':'#10b981','Legs':'#f59e0b','Front Delts':'#ec4899','Side Delts':'#f472b6','Rear Delts':'#fb7185','Biceps':'#8b5cf6','Triceps':'#a78bfa','Forearms':'#14b8a6','Quads':'#f59e0b','Hamstrings':'#d97706','Glutes':'#fb923c','Calves':'#facc15','Abs':'#22d3ee','Other':'#64748b'};
 const mgLabels = {{ mg_vol_weeks | map(attribute='label') | list | tojson }};
 const mgData = {{ mg_vol_data | tojson }};
 const datasets = Object.entries(mgData).map(([mg, vals]) => ({

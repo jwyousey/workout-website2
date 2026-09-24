@@ -315,36 +315,208 @@ _SQLITE_SCHEMA = """
 """
 
 
+MUSCLE_GROUPS = [
+    "Chest", "Back", "Front Delts", "Side Delts", "Rear Delts", "Triceps", "Biceps", "Forearms",
+    "Quads", "Hamstrings", "Glutes", "Calves", "Abs", "Other",
+]
+
+# Starter exercise bank, seeded on first run (grouped by muscle)
 _MUSCLE_GROUP_MAP = {
-    "BB Bench": "Chest", "BB Incline Bench": "Chest", "DB Bench Press": "Chest",
-    "DB Incline Bench": "Chest", "Incline Press Machine": "Chest", "Smith Machine Bench": "Chest",
-    "Smith Machine Incline Bench": "Chest", "Chest Press Machine": "Chest", "Pec Dec": "Chest",
+    # Chest
+    "BB Bench": "Chest",
+    "BB Incline Bench": "Chest",
+    "DB Bench Press": "Chest",
+    "DB Incline Bench": "Chest",
+    "Incline Press Machine": "Chest",
+    "Smith Machine Bench": "Chest",
+    "Smith Machine Incline Bench": "Chest",
+    "Chest Press Machine": "Chest",
+    "Pec Dec": "Chest",
     "Push Ups": "Chest",
-    "Wide Grip Lat Pulldown": "Back", "CG Lat Pulldown": "Back", "Front Pulldown": "Back",
-    "Single Arm Lat Pulldown": "Back", "Lat Pullover": "Back", "Pull-Up": "Back", "Chin Up": "Back",
-    "BB Row": "Back", "DB Row": "Back", "T-Bar Row": "Back", "Hammer Row": "Back",
-    "Cable Row": "Back", "Seated Row": "Back", "Single Arm Cable Row": "Back",
-    "DB Chest Supported Row": "Back", "Chest supported row machine": "Back",
-    "Back Extension": "Back", "Shrugs": "Back",
-    "DB Shoulder Press": "Front Delts", "Shoulder Press Machine": "Front Delts",
-    "Overhead Press": "Front Delts", "Front Raises": "Front Delts",
-    "DB Side Raises": "Side Delts", "Cable Side Raises": "Side Delts",
-    "Side Raise Machine": "Side Delts", "Upright Row": "Side Delts",
-    "Rear Delt Fly": "Rear Delts", "Cable Face Pull": "Rear Delts",
+    "Decline Bench": "Chest",
+    "DB Decline Bench": "Chest",
+    "Floor Press": "Chest",
+    "DB Fly": "Chest",
+    "Incline DB Fly": "Chest",
+    "Low-to-High Cable Fly": "Chest",
+    "High-to-Low Cable Fly": "Chest",
+    "Cable Fly": "Chest",
+    "Chest Dip": "Chest",
+    "Landmine Press": "Chest",
+    "Hammer Strength Chest Press": "Chest",
+    "Deficit Push Ups": "Chest",
+    "Svend Press": "Chest",
+    # Back
+    "Wide Grip Lat Pulldown": "Back",
+    "CG Lat Pulldown": "Back",
+    "Front Pulldown": "Back",
+    "Single Arm Lat Pulldown": "Back",
+    "Lat Pullover": "Back",
+    "Pull-Up": "Back",
+    "Chin Up": "Back",
+    "BB Row": "Back",
+    "DB Row": "Back",
+    "T-Bar Row": "Back",
+    "Hammer Row": "Back",
+    "Cable Row": "Back",
+    "Seated Row": "Back",
+    "Single Arm Cable Row": "Back",
+    "DB Chest Supported Row": "Back",
+    "Chest supported row machine": "Back",
+    "Back Extension": "Back",
+    "Shrugs": "Back",
+    "Deadlift": "Back",
+    "Rack Pull": "Back",
+    "Pendlay Row": "Back",
+    "Seal Row": "Back",
+    "Meadows Row": "Back",
+    "Kroc Row": "Back",
+    "Inverted Row": "Back",
+    "Straight Arm Pulldown": "Back",
+    "Neutral Grip Pull-Up": "Back",
+    "Weighted Pull-Up": "Back",
+    "Assisted Pull-Up": "Back",
+    "Iso-Lateral Lat Pulldown": "Back",
+    "DB Shrugs": "Back",
+    # Front Delts
+    "DB Shoulder Press": "Front Delts",
+    "Shoulder Press Machine": "Front Delts",
+    "Overhead Press": "Front Delts",
+    "Front Raises": "Front Delts",
+    "Arnold Press": "Front Delts",
+    "Push Press": "Front Delts",
+    "Z Press": "Front Delts",
+    "Landmine Shoulder Press": "Front Delts",
+    "Smith Machine Shoulder Press": "Front Delts",
+    "Cable Front Raise": "Front Delts",
+    "Plate Front Raise": "Front Delts",
+    # Side Delts
+    "DB Side Raises": "Side Delts",
+    "Cable Side Raises": "Side Delts",
+    "Side Raise Machine": "Side Delts",
+    "Upright Row": "Side Delts",
+    "Lean-Away Cable Side Raise": "Side Delts",
+    "Seated DB Side Raise": "Side Delts",
+    "Behind-the-Back Cable Side Raise": "Side Delts",
+    "Cable Y-Raise": "Side Delts",
+    "Lu Raise": "Side Delts",
+    # Rear Delts
+    "Rear Delt Fly": "Rear Delts",
+    "Cable Face Pull": "Rear Delts",
     "Single Arm Cable Rear Delt": "Rear Delts",
-    "Tricep Pushdown": "Triceps", "Rope tricep pushdown": "Triceps",
-    "EZ Bar Skull Crushers": "Triceps", "DB Overhead Tricep Extension": "Triceps",
-    "Tricep Extension Machine": "Triceps", "Dip": "Triceps", "Seated Dip Machine": "Triceps",
-    "DB Curl": "Biceps", "Single Arm DB Curl": "Biceps", "Hammer Curl": "Biceps",
-    "DB Hammer Curl": "Biceps", "EZ Bar Curl": "Biceps", "Straight Bar Curl": "Biceps",
-    "Cable Curl": "Biceps", "Incline Curl": "Biceps", "Preacher Curl": "Biceps",
-    "DB Preacher Curl": "Biceps", "Zottman Curl": "Biceps",
-    "Reverse Curl": "Forearms", "BTB Curls": "Forearms", "Wrist Curl": "Forearms",
-    "Back Squat": "Legs", "Front Squat": "Legs", "KB Goblet Squat": "Legs",
-    "Split Squat": "Legs", "Leg Press": "Legs", "Leg Extension": "Legs",
-    "SL Leg Extension": "Legs", "BB RDL": "Legs", "Hamstring Curl": "Legs",
-    "SL Hamstring Curl": "Legs", "Calf Raise": "Legs", "Seated Calf Raise": "Legs",
-    "Leg raises(abs)": "Other",
+    "Reverse Pec Dec": "Rear Delts",
+    "Bent Over DB Rear Delt Fly": "Rear Delts",
+    "Chest Supported Rear Delt Raise": "Rear Delts",
+    "Cable Reverse Fly": "Rear Delts",
+    "Band Pull-Apart": "Rear Delts",
+    # Triceps
+    "Tricep Pushdown": "Triceps",
+    "Rope tricep pushdown": "Triceps",
+    "EZ Bar Skull Crushers": "Triceps",
+    "DB Overhead Tricep Extension": "Triceps",
+    "Tricep Extension Machine": "Triceps",
+    "Dip": "Triceps",
+    "Seated Dip Machine": "Triceps",
+    "Close Grip Bench": "Triceps",
+    "JM Press": "Triceps",
+    "BB Skull Crushers": "Triceps",
+    "Tate Press": "Triceps",
+    "Overhead Cable Tricep Extension": "Triceps",
+    "Single Arm Cable Pushdown": "Triceps",
+    "DB Kickback": "Triceps",
+    "Cable Kickback": "Triceps",
+    "Diamond Push Ups": "Triceps",
+    "Bench Dips": "Triceps",
+    # Biceps
+    "DB Curl": "Biceps",
+    "Single Arm DB Curl": "Biceps",
+    "Hammer Curl": "Biceps",
+    "DB Hammer Curl": "Biceps",
+    "EZ Bar Curl": "Biceps",
+    "Straight Bar Curl": "Biceps",
+    "Cable Curl": "Biceps",
+    "Incline Curl": "Biceps",
+    "Preacher Curl": "Biceps",
+    "DB Preacher Curl": "Biceps",
+    "Zottman Curl": "Biceps",
+    "Spider Curl": "Biceps",
+    "Bayesian Cable Curl": "Biceps",
+    "Concentration Curl": "Biceps",
+    "Drag Curl": "Biceps",
+    "Cross-Body Hammer Curl": "Biceps",
+    "Rope Hammer Curl": "Biceps",
+    "Machine Curl": "Biceps",
+    "Cable Preacher Curl": "Biceps",
+    "21s": "Biceps",
+    # Forearms
+    "Reverse Curl": "Forearms",
+    "BTB Curls": "Forearms",
+    "Wrist Curl": "Forearms",
+    "Reverse Wrist Curl": "Forearms",
+    "Wrist Roller": "Forearms",
+    "Plate Pinch": "Forearms",
+    "Farmer's Carry": "Forearms",
+    "Dead Hang": "Forearms",
+    # Quads
+    "Back Squat": "Quads",
+    "Front Squat": "Quads",
+    "KB Goblet Squat": "Quads",
+    "Split Squat": "Quads",
+    "Leg Press": "Quads",
+    "Leg Extension": "Quads",
+    "SL Leg Extension": "Quads",
+    "Hack Squat": "Quads",
+    "Pendulum Squat": "Quads",
+    "Belt Squat": "Quads",
+    "Smith Machine Squat": "Quads",
+    "Bulgarian Split Squat": "Quads",
+    "Walking Lunge": "Quads",
+    "Reverse Lunge": "Quads",
+    "Step-Ups": "Quads",
+    "Sissy Squat": "Quads",
+    # Hamstrings
+    "BB RDL": "Hamstrings",
+    "Hamstring Curl": "Hamstrings",
+    "SL Hamstring Curl": "Hamstrings",
+    "Sumo Deadlift": "Hamstrings",
+    "DB RDL": "Hamstrings",
+    "SL RDL": "Hamstrings",
+    "Good Morning": "Hamstrings",
+    "Nordic Curl": "Hamstrings",
+    "Glute Ham Raise": "Hamstrings",
+    "Seated Hamstring Curl": "Hamstrings",
+    # Glutes
+    "Hip Thrust": "Glutes",
+    "Glute Bridge": "Glutes",
+    "Hip Abduction Machine": "Glutes",
+    "Hip Adduction Machine": "Glutes",
+    "Cable Glute Kickback": "Glutes",
+    # Calves
+    "Calf Raise": "Calves",
+    "Seated Calf Raise": "Calves",
+    "Standing Calf Raise": "Calves",
+    "Leg Press Calf Raise": "Calves",
+    "Tibialis Raise": "Calves",
+    # Abs
+    "Leg raises(abs)": "Abs",
+    "Hanging Leg Raise": "Abs",
+    "Hanging Knee Raise": "Abs",
+    "Cable Crunch": "Abs",
+    "Decline Sit-Up": "Abs",
+    "Ab Wheel Rollout": "Abs",
+    "Plank": "Abs",
+    "Side Plank": "Abs",
+    "Dead Bug": "Abs",
+    "Russian Twist": "Abs",
+    "Pallof Press": "Abs",
+    "Cable Woodchopper": "Abs",
+    # Other
+    "Power Clean": "Other",
+    "KB Swing": "Other",
+    "Thrusters": "Other",
+    "Sled Push": "Other",
+    "Turkish Get-Up": "Other",
+    "Burpees": "Other",
 }
 
 def init_db():
@@ -2001,12 +2173,14 @@ def prs():
         muscle_rows = conn.execute("SELECT name, muscle_group FROM exercise_bank").fetchall()
     _delt_merge = {"Front Delts", "Side Delts", "Rear Delts"}
     _arm_merge = {"Biceps", "Triceps", "Forearms"}
+    _leg_merge = {"Quads", "Hamstrings", "Glutes", "Calves"}
     def _pr_group(raw):
         if raw in _delt_merge: return "Shoulders"
         if raw in _arm_merge: return "Arms"
+        if raw in _leg_merge: return "Legs"
         return raw or "Other"
     muscle_map = {r["name"]: _pr_group(r["muscle_group"]) for r in muscle_rows}
-    group_order = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Other"]
+    group_order = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Abs", "Other"]
     def _build_grouped(items):
         grouped = {}
         for name, val in items:
@@ -2298,12 +2472,11 @@ def exercises():
     for ex in bank:
         mg = ex["muscle_group"] or "Other"
         groups.setdefault(mg, []).append({"name": ex["name"], "id": ex["id"], "stats": stats_map.get(ex["name"])})
-    muscle_order = ["Chest", "Back", "Front Delts", "Side Delts", "Rear Delts", "Triceps", "Biceps", "Forearms", "Legs", "Other"]
-    ordered = {mg: groups[mg] for mg in muscle_order if mg in groups}
+    ordered = {mg: groups[mg] for mg in MUSCLE_GROUPS if mg in groups}
     for mg in groups:
         if mg not in ordered:
             ordered[mg] = groups[mg]
-    return render_template("exercises.html", groups=ordered)
+    return render_template("exercises.html", groups=ordered, muscle_groups=MUSCLE_GROUPS)
 
 
 @app.route("/exercises/add", methods=["POST"])
