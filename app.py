@@ -188,6 +188,11 @@ _PG_SCHEMA = """
         name TEXT NOT NULL UNIQUE,
         muscle_group TEXT
     );
+    CREATE TABLE IF NOT EXISTS cardio_activities (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        category TEXT
+    );
     CREATE TABLE IF NOT EXISTS sleep_logs (
         id SERIAL PRIMARY KEY,
         date TEXT NOT NULL,
@@ -284,6 +289,11 @@ _SQLITE_SCHEMA = """
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         muscle_group TEXT
+    );
+    CREATE TABLE IF NOT EXISTS cardio_activities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        category TEXT
     );
     CREATE TABLE IF NOT EXISTS sleep_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -519,9 +529,60 @@ _MUSCLE_GROUP_MAP = {
     "Burpees": "Other",
 }
 
+CARDIO_CATEGORIES = ["Run & Walk", "Machines", "Sports", "Other"]
+
+# Starter cardio activities, seeded on first run. The first 14 have their own
+# fields on the cardio log (splits, pool length, ski runs...); the rest use the standard fields.
+_CARDIO_ACTIVITY_MAP = {
+    # Run & Walk
+    "Run": "Run & Walk", "Walk": "Run & Walk", "Incline Walk": "Run & Walk",
+    "Hike": "Run & Walk", "Trail Run": "Run & Walk", "Sprints": "Run & Walk",
+    # Machines
+    "Bike": "Machines", "Row": "Machines", "Swim": "Machines", "Elliptical": "Machines",
+    "Stairmaster": "Machines", "Jump Rope": "Machines",
+    "Assault Bike": "Machines", "Spin Class": "Machines", "Ski Erg": "Machines",
+    "Arc Trainer": "Machines", "VersaClimber": "Machines",
+    # Sports
+    "Basketball": "Sports", "Tennis": "Sports", "Pickleball": "Sports", "Skiing": "Sports",
+    "Golf (Walking)": "Sports",
+    "Soccer": "Sports", "Volleyball": "Sports", "Hockey": "Sports", "Racquetball": "Sports",
+    "Squash": "Sports", "Snowboarding": "Sports",
+    # Other
+    "Boxing": "Other", "Kickboxing": "Other", "HIIT Class": "Other", "Circuit Training": "Other",
+    "Rock Climbing": "Other", "Kayaking": "Other", "Dance": "Other",
+}
+
+
+def add_cardio_activity(conn, name, category="Other"):
+    """Remember a cardio activity (no-op if it already exists)."""
+    name = (name or "").strip()
+    if not name or name == "Other":
+        return
+    if category not in CARDIO_CATEGORIES:
+        category = "Other"
+    conn.execute("INSERT INTO cardio_activities (name, category) VALUES (?, ?) ON CONFLICT (name) DO NOTHING", (name, category))
+
+
+def get_cardio_activities():
+    """{category: [names]} in CARDIO_CATEGORIES order."""
+    with db() as conn:
+        rows = conn.execute("SELECT name, category FROM cardio_activities ORDER BY name").fetchall()
+    groups = {c: [] for c in CARDIO_CATEGORIES}
+    for r in rows:
+        groups.setdefault(r["category"] if r["category"] in groups else "Other", []).append(r["name"])
+    return {c: names for c, names in groups.items() if names}
+
+
 def init_db():
     with db() as conn:
         conn.executescript(_PG_SCHEMA if DATABASE_URL else _SQLITE_SCHEMA)
+    # Seed cardio activities (plus any already logged) if empty
+    with db() as conn:
+        if conn.execute("SELECT COUNT(*) as c FROM cardio_activities").fetchone()["c"] == 0:
+            for name, category in _CARDIO_ACTIVITY_MAP.items():
+                add_cardio_activity(conn, name, category)
+            for r in conn.execute("SELECT DISTINCT activity FROM cardio_sessions").fetchall():
+                add_cardio_activity(conn, r["activity"])
     # Migrate exercise_bank from sets if empty
     with db() as conn:
         count = conn.execute("SELECT COUNT(*) as c FROM exercise_bank").fetchone()["c"]
@@ -2332,7 +2393,19 @@ def cardio():
         chart_dist_labels=chart_dist_labels, chart_dist_values=chart_dist_values,
         chart_dur_labels=chart_dur_labels, chart_dur_values=chart_dur_values,
         goal_streak=goal_streak, cardio_goal=cardio_goal, splits_by_session=splits_by_session,
+        cardio_activities=get_cardio_activities(),
     )
+
+
+@app.route("/cardio/activities/add", methods=["POST"])
+@login_required
+def add_cardio_activity_route():
+    data = request.json
+    if not (data.get("name") or "").strip():
+        return jsonify({"error": "Name required"}), 400
+    with db() as conn:
+        add_cardio_activity(conn, data["name"], data.get("category", "Other"))
+    return jsonify({"ok": True})
 
 
 @app.route("/cardio/add", methods=["POST"])
@@ -2341,6 +2414,7 @@ def add_cardio():
     data = request.json
     prior_prs = get_cardio_prs()
     with db() as conn:
+        add_cardio_activity(conn, data.get("activity"))
         cur = conn.execute(
             "INSERT INTO cardio_sessions (date, activity, duration_min, distance, distance_unit, calories, incline, speed, notes, elevation_gain, avg_heart_rate, pool_length, pool_length_unit, laps, elapsed_time_min) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -2414,6 +2488,7 @@ def add_cardio():
 def edit_cardio(session_id):
     data = request.json
     with db() as conn:
+        add_cardio_activity(conn, data.get("activity"))
         conn.execute(
             "UPDATE cardio_sessions SET date=?, activity=?, duration_min=?, distance=?, distance_unit=?, calories=?, incline=?, speed=?, notes=?, elevation_gain=?, avg_heart_rate=?, pool_length=?, pool_length_unit=?, laps=?, elapsed_time_min=? WHERE id=?",
             (
@@ -2476,7 +2551,21 @@ def exercises():
     for mg in groups:
         if mg not in ordered:
             ordered[mg] = groups[mg]
-    return render_template("exercises.html", groups=ordered, muscle_groups=MUSCLE_GROUPS)
+
+    with db() as conn:
+        cardio_stats = conn.execute("""
+            SELECT activity, COUNT(*) as sessions, SUM(duration_min) as total_min, MAX(date) as last_date
+            FROM cardio_sessions GROUP BY activity
+        """).fetchall()
+    cardio_stats_map = {r["activity"]: dict(r) for r in cardio_stats}
+    cardio_groups = {
+        category: [{"name": n, "stats": cardio_stats_map.get(n)} for n in names]
+        for category, names in get_cardio_activities().items()
+    }
+    return render_template(
+        "exercises.html", groups=ordered, muscle_groups=MUSCLE_GROUPS,
+        cardio_groups=cardio_groups, cardio_categories=CARDIO_CATEGORIES,
+    )
 
 
 @app.route("/exercises/add", methods=["POST"])

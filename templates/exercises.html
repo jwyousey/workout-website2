@@ -40,6 +40,33 @@
 </div>
 {% endfor %}
 
+{% if cardio_groups %}
+<h2 class="cardio-heading" style="font-size:20px;font-weight:800;color:var(--text);margin:28px 0 12px;letter-spacing:.04em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Cardio</h2>
+{% for category, acts in cardio_groups.items() %}
+<div class="muscle-group" data-group="Cardio: {{ category }}" style="margin-bottom:16px;">
+  <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">{{ category }}</div>
+  <div class="card card-flush">
+    {% for act in acts %}
+    <div class="ex-row" data-name="{{ act.name | lower }}" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;color:var(--text);">{{ act.name }}</div>
+        {% if act.stats %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">
+          <span style="color:#fcd34d;font-weight:600;">{{ act.stats.sessions }} session{{ 's' if act.stats.sessions != 1 }}</span>
+          {% if act.stats.total_min %}· {{ act.stats.total_min | round | int }} min total{% endif %}
+          · Last: {{ act.stats.last_date | format_date }}
+        </div>
+        {% else %}
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">No sessions logged yet</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
 <!-- Add Exercise Modal -->
 <dialog id="addModal" onclick="if(event.target===this)this.close()">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -54,9 +81,14 @@
       <input type="text" id="newExName" class="input" placeholder="e.g. Cable Fly" />
     </div>
     <div>
-      <label class="label">Muscle Group</label>
+      <label class="label">Muscle Group / Type</label>
       <select id="newExGroup" class="input">
-        {% for mg in muscle_groups %}<option>{{ mg }}</option>{% endfor %}
+        <optgroup label="Lifting">
+          {% for mg in muscle_groups %}<option value="{{ mg }}">{{ mg }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="Cardio">
+          {% for c in cardio_categories %}<option value="cardio:{{ c }}">Cardio: {{ c }}</option>{% endfor %}
+        </optgroup>
       </select>
     </div>
   </div>
@@ -78,16 +110,19 @@ function filterExercises() {
     const visible = [...group.querySelectorAll('.ex-row')].some(r => r.style.display !== 'none');
     group.style.display = visible ? 'block' : 'none';
   });
+  const heading = document.querySelector('.cardio-heading');
+  if (heading) heading.style.display = [...document.querySelectorAll('.muscle-group[data-group^="Cardio:"]')].some(g => g.style.display !== 'none') ? '' : 'none';
 }
 
 async function saveExercise() {
   const name = document.getElementById('newExName').value.trim();
-  const muscle_group = document.getElementById('newExGroup').value;
+  const group = document.getElementById('newExGroup').value;
   if (!name) return alert('Name is required.');
-  await fetch('/exercises/add', {
+  const isCardio = group.startsWith('cardio:');
+  await fetch(isCardio ? '/cardio/activities/add' : '/exercises/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, muscle_group }),
+    body: JSON.stringify(isCardio ? { name, category: group.slice(7) } : { name, muscle_group: group }),
     credentials: 'same-origin',
   });
   location.reload();

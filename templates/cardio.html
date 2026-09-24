@@ -201,21 +201,12 @@
     <div>
       <label class="label">Activity</label>
       <select id="cActivity" class="input" onchange="handleActivitySelect(this)">
-        <option>Run</option>
-        <option>Walk</option>
-        <option>Incline Walk</option>
-        <option>Bike</option>
-        <option>Row</option>
-        <option>Swim</option>
-        <option>Elliptical</option>
-        <option>Stairmaster</option>
-        <option>Jump Rope</option>
-        <option>Basketball</option>
-        <option>Tennis</option>
-        <option>Pickleball</option>
-        <option>Skiing</option>
-        <option>Golf (Walking)</option>
-        <option>Other</option>
+        {% for category, names in cardio_activities.items() %}
+        <optgroup label="{{ category }}">
+          {% for name in names %}<option value="{{ name }}"{% if name == 'Run' %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+        <option value="Other">Other (type new)…</option>
       </select>
     </div>
     <!-- Indoor/outdoor toggle (Walk & Run) -->
@@ -386,7 +377,7 @@ async function saveCardio() {
   const id = document.getElementById('cId').value;
   const date = document.getElementById('cDate').value;
   const activity = document.getElementById('cActivity').value;
-  const HM_ACTIVITIES = ['Skiing','Golf (Walking)','Tennis','Basketball','Pickleball'];
+  const HM_ACTIVITIES = SPORTS;
   let duration_min = parseFloat(document.getElementById('cDuration').value) || null;
   if (HM_ACTIVITIES.includes(activity)) {
     const h = parseInt(document.getElementById('cDurHrs').value) || 0;
@@ -570,6 +561,15 @@ function onActivityChange() {
     document.getElementById('fieldGolf').style.display = '';
     document.getElementById('fieldDurationMin').style.display = 'none';
     document.getElementById('fieldDurationHM').style.display = '';
+  } else if (RUN_WALK.includes(a)) {
+    // Other run/walk activities (Hike, Trail Run...): distance + elevation, no splits
+    document.getElementById('fieldSplits').style.display = 'none';
+  } else if (SPORTS.includes(a)) {
+    document.getElementById('fieldDistance').style.display = 'none';
+    document.getElementById('fieldElevation').style.display = 'none';
+    document.getElementById('fieldSplits').style.display = 'none';
+    document.getElementById('fieldDurationMin').style.display = 'none';
+    document.getElementById('fieldDurationHM').style.display = '';
   } else {
     document.getElementById('fieldDistance').style.display = 'none';
     document.getElementById('fieldElevation').style.display = 'none';
@@ -580,7 +580,9 @@ function onActivityChange() {
 function openAddModal() {
   document.getElementById('cId').value = '';
   document.getElementById('cDate').value = localDateStr();
-  document.getElementById('cActivity').selectedIndex = 0;
+  const actSel = document.getElementById('cActivity');
+  actSel.value = 'Run';
+  if (!actSel.value) actSel.selectedIndex = 0;
   document.getElementById('cDuration').value = '';
   document.getElementById('cDistance').value = '';
   document.getElementById('cDistUnit').selectedIndex = 0;
@@ -731,8 +733,7 @@ function editSession(s) {
   const et = s.elapsed_time_min || 0;
   document.getElementById('cElapsedHrs').value = et ? Math.floor(et / 60) : '';
   document.getElementById('cElapsedMins').value = et ? et % 60 : '';
-  const hmActs = ['Skiing','Golf (Walking)','Tennis','Basketball','Pickleball'];
-  if (hmActs.includes(s.activity) && s.duration_min) {
+  if (SPORTS.includes(s.activity) && s.duration_min) {
     document.getElementById('cDurHrs').value = Math.floor(s.duration_min / 60);
     document.getElementById('cDurMins').value = s.duration_min % 60;
   } else {
@@ -756,8 +757,9 @@ function editSession(s) {
   addModal.showModal();
 }
 
-const MACHINES = ['Bike','Row','Swim','Elliptical','Stairmaster','Jump Rope'];
-const SPORTS = ['Basketball','Tennis','Pickleball','Skiing','Golf (Walking)'];
+const MACHINES = {{ cardio_activities.get('Machines', []) | tojson }};
+const SPORTS = {{ cardio_activities.get('Sports', []) | tojson }};
+const RUN_WALK = {{ cardio_activities.get('Run & Walk', []) | tojson }};
 const ALL_SESSIONS = [
   {% for s in sessions %}
   {date:"{{s.date}}",activity:"{{s.activity}}",duration_min:{{s.duration_min or 'null'}},distance:{{s.distance or 'null'}},distance_unit:"{{s.distance_unit or 'mi'}}",calories:{{s.calories or 'null'}},avg_heart_rate:{{s.get('avg_heart_rate') or 'null'}},splits:{{ splits_by_session.get(s.id, []) | tojson }}},
