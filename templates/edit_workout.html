@@ -66,6 +66,7 @@
       </button>
     </div>
     <div style="margin-bottom:6px;">
+      <input type="search" class="input ex-search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" style="margin-bottom:6px;font-size:13px;" />
       <select class="input ex-name" style="width:100%;" onchange="handleExSelect(this)">
         <option value="">— select exercise —</option>
         {% for ex in exercise_bank %}<option value="{{ ex.name }}" data-group="{{ ex.muscle_group or 'Other' }}">{{ ex.name }}</option>{% endfor %}
@@ -110,6 +111,7 @@
 
 {% endblock %}
 {% block scripts %}
+<script src="/static/exercise-search.js"></script>
 <style>
 .ss-link-btn {
   display:flex;align-items:center;justify-content:center;gap:4px;margin:4px auto;padding:3px 10px;

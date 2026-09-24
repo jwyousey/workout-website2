@@ -86,7 +86,7 @@
       </button>
     </div>
     <div style="margin-bottom:6px;">
-      <input type="text" class="input ex-search" placeholder="Search exercises…" style="margin-bottom:6px;font-size:13px;" oninput="filterExercises(this)" />
+      <input type="search" class="input ex-search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" style="margin-bottom:6px;font-size:13px;" />
       <select class="input ex-name" style="width:100%;" onchange="handleExSelect(this);clearExSearch(this)" size="1">
         <option value="">— select exercise —</option>
         {% for ex in exercise_bank %}<option value="{{ ex.name }}" data-group="{{ ex.muscle_group or 'Other' }}">{{ ex.name }}</option>{% endfor %}
@@ -132,6 +132,7 @@
 
 {% endblock %}
 {% block scripts %}
+<script src="/static/exercise-search.js"></script>
 <style>
 .ss-link-btn {
   display:flex;align-items:center;justify-content:center;gap:4px;margin:4px auto;padding:3px 10px;
@@ -361,20 +362,6 @@ function addSet(btn, reps = null) {
   container.appendChild(row);
   renumberSets(container);
   updateSetPlaceholder(row, getExName(block));
-}
-
-function filterExercises(searchEl) {
-  const block = searchEl.closest('.exercise-block');
-  const exSel = block.querySelector('.ex-name');
-  const query = searchEl.value.toLowerCase();
-  for (const opt of exSel.options) {
-    if (!opt.value || opt.value === '__other__') continue;
-    const matchesSearch = !query || opt.text.toLowerCase().includes(query);
-    const matchesMg = block.querySelector('.ex-muscle-group').value
-      ? opt.dataset.group === block.querySelector('.ex-muscle-group').value
-      : (allowedGroups ? allowedGroups.includes(opt.dataset.group) : true);
-    opt.hidden = !(matchesSearch && matchesMg);
-  }
 }
 
 function clearExSearch(sel) {
