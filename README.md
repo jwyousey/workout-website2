@@ -22,7 +22,6 @@ Open **Settings** (the gear icon in the top bar, or the sidebar) to set:
 - **Weekly schedule:** what you train each day, shown as a badge on the Dashboard and Lifts pages
 - **Goals:** weekly cardio minutes, nightly sleep hours, streak goal, and whether weekends break streaks
 - **Body:** goal weight, height, age and sex (used for BMI and body fat estimates)
-- **Stats comparison:** the object your total volume is measured in on the Stats page
 
 ## Environment variables (all optional)
 

@@ -364,15 +364,6 @@
 
 </div>
 
-<!-- Fun comparison: total volume in objects lifted -->
-<div class="stat-card" style="--stat-accent:#f59e0b;padding:20px;margin-bottom:16px;">
-  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">{{ settings.compare_name }} Lifted</div>
-  <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-    <div style="font-size:36px;font-weight:800;color:#fcd34d;">{{ compare_lifted }}</div>
-      </div>
-  <div style="font-size:11px;color:var(--text-3);margin-top:6px;">{{ "{:,.0f}".format(total_volume) }} lbs total ÷ {{ "{:,.0f}".format(compare_lbs) }} lbs each</div>
-</div>
-
 <style>
 @media (max-width: 600px) {
   .two-col { grid-template-columns: 1fr !important; }

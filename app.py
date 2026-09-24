@@ -593,8 +593,6 @@ SETTINGS_DEFAULTS = {
     "sleep_goal_hours": "8",     # nightly sleep target
     "streak_goal_days": "7",     # dashboard streak goal
     "streak_skip_weekends": "1", # weekends don't break streaks
-    "compare_name": "Pickup Trucks",
-    "compare_lbs": "5000",
     "goal_weight": "",
     "height_inches": "",
     "age": "",
@@ -1823,14 +1821,13 @@ def settings_page():
             for i in range(7)
         ]
         set_setting("schedule", json.dumps(schedule))
-        for key in ["cardio_goal_min", "sleep_goal_hours", "streak_goal_days", "compare_lbs"]:
+        for key in ["cardio_goal_min", "sleep_goal_hours", "streak_goal_days"]:
             try:
                 if float(f.get(key, "")) > 0:
                     set_setting(key, f[key])
             except ValueError:
                 pass
         set_setting("streak_skip_weekends", "1" if f.get("streak_skip_weekends") else "0")
-        set_setting("compare_name", f.get("compare_name", "").strip()[:40] or SETTINGS_DEFAULTS["compare_name"])
         # Body stats may be cleared
         ft, inch = f.get("height_ft", "").strip(), f.get("height_in", "").strip()
         try:
@@ -2688,10 +2685,6 @@ def stats():
             if v > 1_000:     return f"{v/1_000:.0f}K lbs"
             return f"{v:.0f} lbs"
 
-        _settings = get_settings()
-        compare_lbs = setting_num(_settings, "compare_lbs")
-        compare_lifted = round(total_volume / compare_lbs, 2) if total_volume else 0
-
         # --- Weekly volume by muscle group (last 8 weeks) ---
         from datetime import date as _mgvd
         mg_vol_weeks = []
@@ -2766,8 +2759,6 @@ def stats():
         pr_counts=pr_counts,
         mg_week_rows=mg_week_rows,
         neglected_rows=neglected_rows,
-        compare_lifted=compare_lifted,
-        compare_lbs=compare_lbs,
         mg_vol_weeks=mg_vol_weeks,
         mg_vol_data=mg_vol_data,
     )
