@@ -60,14 +60,14 @@
   </div>
 
   <div class="card" style="margin-bottom:16px;padding:16px 20px;">
-    {% set goal_min = 150 %}
+    {% set goal_min = cardio_goal %}
     {% set week_min = week_stats.minutes %}
     {% set goal_pct = [[week_min / goal_min * 100, 0] | max, 100] | min | round(1) %}
     {% set at_goal = week_min >= goal_min %}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <span style="font-size:13px;font-weight:700;color:var(--text-2);">Weekly Goal</span>
       <span style="font-size:12px;font-weight:600;color:{% if at_goal %}#6ee7b7{% else %}#fcd34d{% endif %};">
-        {% if at_goal %}Goal reached!{% else %}{{ (goal_min - week_min) | int }} min to go{% endif %}
+        {% if at_goal %}Goal reached!{% else %}{{ (goal_min - week_min) | round | int }} min to go{% endif %}
       </span>
     </div>
     <div style="position:relative;height:12px;background:var(--chart-grid);border-radius:6px;overflow:visible;margin-bottom:8px;">
@@ -79,12 +79,12 @@
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);">
       <span>{{ week_min | int }} min</span>
       <span style="font-weight:700;color:{% if at_goal %}#6ee7b7{% else %}var(--text-2){% endif %};">{{ goal_pct }}%</span>
-      <span>{{ goal_min }} min <span style="opacity:.6;">(goal)</span></span>
+      <span>{{ goal_min | round | int }} min <span style="opacity:.6;">(goal)</span></span>
     </div>
     {% if goal_streak > 0 %}
     <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
       <span style="font-size:20px;font-weight:800;color:#fcd34d;">{{ goal_streak }}</span>
-      <span style="font-size:12px;color:var(--text-3);">week{{ 's' if goal_streak != 1 }} in a row hitting 150 min</span>
+      <span style="font-size:12px;color:var(--text-3);">week{{ 's' if goal_streak != 1 }} in a row hitting {{ goal_min | round | int }} min</span>
     </div>
     {% endif %}
   </div>

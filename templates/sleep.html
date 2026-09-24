@@ -36,7 +36,7 @@
     <div class="stat-num" style="color:{% if weekly_debt > 0 %}#fca5a5{% else %}#6ee7b7{% endif %};">
       {% if weekly_debt > 0 %}+{% endif %}{{ weekly_debt }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">hr</span>
     </div>
-    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs 8hr/night target</div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs {{ settings.sleep_goal_hours }}hr/night target</div>
     {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
   </div>
 </div>
@@ -79,7 +79,7 @@
     <div class="stat-num" style="color:{% if weekly_stats[0].debt > 0 %}#fca5a5{% else %}#6ee7b7{% endif %};">
       {% if weekly_stats[0].debt > 0 %}+{% endif %}{{ weekly_stats[0].debt }}<span style="font-size:14px;font-weight:500;color:var(--text-3);margin-left:2px;">hr</span>
     </div>
-    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs 8hr/night target</div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:4px;">vs {{ settings.sleep_goal_hours }}hr/night target</div>
     {% else %}<div class="stat-num" style="color:var(--text-3);">—</div>{% endif %}
   </div>
 </div>

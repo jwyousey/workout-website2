@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, abort, send_file
 import os
 import secrets
+import json
+import re
 import io
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -327,7 +329,7 @@ _MUSCLE_GROUP_MAP = {
     "DB Side Raises": "Side Delts", "Cable Side Raises": "Side Delts",
     "Side Raise Machine": "Side Delts", "Upright Row": "Side Delts",
     "Rear Delt Fly": "Rear Delts", "Cable Face Pull": "Rear Delts",
-    "Shrugs": "Traps",
+    "Shrugs": "Back",
     "Tricep Pushdown": "Triceps", "EZ Bar Skull Crushers": "Triceps",
     "Tricep Extension Machine": "Triceps", "Dip": "Triceps",
     "DB Overhead Tricep Extension": "Triceps",
@@ -341,35 +343,11 @@ _MUSCLE_GROUP_MAP = {
     "BB RDL": "Legs", "Hamstring Curl": "Legs", "SL Hamstring Curl": "Legs",
     "Hip Thrust": "Legs",
     "Calf Raise": "Legs",
-    "Side Raise Machine": "Shoulders", "Cable Side Raises": "Shoulders",
-    "Cable Rear Delt": "Shoulders",
-    "Overhead Press": "Shoulders",
 }
 
 def init_db():
     with db() as conn:
         conn.executescript(_PG_SCHEMA if DATABASE_URL else _SQLITE_SCHEMA)
-    # Fix any muscle group assignments that changed
-    forearm_exercises = ["Reverse Curl", "BTB Curls", "Wrist Curl"]
-    with db() as conn:
-        for name in forearm_exercises:
-            conn.execute("UPDATE exercise_bank SET muscle_group='Forearms' WHERE name=?", (name,))
-    with db() as conn:
-        conn.execute("UPDATE exercise_bank SET muscle_group='Triceps' WHERE name='DB Overhead Tricep Extension'")
-    delt_updates = {
-        "Front Delts": ["DB Shoulder Press", "Shoulder Press Machine", "Overhead Press", "Front Raises"],
-        "Side Delts": ["DB Side Raises", "Cable Side Raises", "Side Raise Machine", "Upright Row"],
-        "Rear Delts": ["Rear Delt Fly", "Cable Face Pull"],
-        "Back": ["Shrugs"],
-    }
-    with db() as conn:
-        for group, names in delt_updates.items():
-            for name in names:
-                conn.execute("UPDATE exercise_bank SET muscle_group=? WHERE name=?", (group, name))
-    with db() as conn:
-        conn.execute("UPDATE exercise_bank SET muscle_group='Legs' WHERE muscle_group IN ('Quads', 'Hamstrings', 'Calves', 'Glutes')")
-    with db() as conn:
-        conn.execute("UPDATE exercise_bank SET muscle_group='Back' WHERE name='T-Bar Row'")
     # Migrate exercise_bank from sets if empty
     with db() as conn:
         count = conn.execute("SELECT COUNT(*) as c FROM exercise_bank").fetchone()["c"]
@@ -546,21 +524,15 @@ def init_db():
 init_db()
 
 
-_DAY_WORKOUT = {
-    0: ("Monday",    "Push",             "#3b82f6"),
-    1: ("Tuesday",   "Pull",             "#10b981"),
-    2: ("Wednesday", "Legs",             "#f59e0b"),
-    3: ("Thursday",  "Chest & Back", "#8b5cf6"),
-    4: ("Friday",    "Shoulders & Arms", "#ec4899"),
-}
-
 @app.context_processor
 def inject_globals():
     today = date.today().strftime("%Y-%m-%d")
     now = datetime.now().strftime("%A, %B %-d, %Y")
+    settings = get_settings()
     weekday = date.today().weekday()
-    day_info = _DAY_WORKOUT.get(weekday)  # None on Sat/Sun
-    return {"today": today, "now": now, "day_workout": day_info}
+    day = get_schedule(settings)[weekday]
+    day_info = (WEEKDAYS[weekday], day["label"], day["color"]) if day["label"] else None
+    return {"today": today, "now": now, "day_workout": day_info, "settings": settings}
 
 
 @app.template_filter("format_date")
@@ -610,6 +582,55 @@ def workout_type_label(name):
 
 
 # ---------- helpers ----------
+
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_SCHEDULE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"]
+
+# Everything adjustable on the Settings page. Stored as strings in user_settings.
+SETTINGS_DEFAULTS = {
+    "schedule": "",              # JSON list of 7 {label, color}, Monday first; blank label = no badge
+    "cardio_goal_min": "150",    # weekly cardio goal (minutes)
+    "sleep_goal_hours": "8",     # nightly sleep target
+    "streak_goal_days": "7",     # dashboard streak goal
+    "streak_skip_weekends": "1", # weekends don't break streaks
+    "compare_name": "Pickup Trucks",
+    "compare_lbs": "5000",
+    "goal_weight": "",
+    "height_inches": "",
+    "age": "",
+    "sex": "",
+}
+
+
+def get_settings():
+    with db() as conn:
+        rows = conn.execute("SELECT key, value FROM user_settings").fetchall()
+    settings = dict(SETTINGS_DEFAULTS)
+    settings.update({r["key"]: r["value"] for r in rows if r["value"] is not None})
+    return settings
+
+
+def setting_num(settings, key):
+    """Numeric setting, falling back to the default if the stored value is bad."""
+    try:
+        return float(settings.get(key) or SETTINGS_DEFAULTS[key])
+    except ValueError:
+        return float(SETTINGS_DEFAULTS[key])
+
+
+def get_schedule(settings):
+    try:
+        days = json.loads(settings.get("schedule") or "[]")
+    except ValueError:
+        days = []
+    return [
+        {
+            "label": (days[i].get("label") or "").strip() if i < len(days) else "",
+            "color": (days[i].get("color") if i < len(days) else None) or _SCHEDULE_COLORS[i],
+        }
+        for i in range(7)
+    ]
+
 
 def get_setting(key, default=None):
     with db() as conn:
@@ -888,10 +909,11 @@ def dashboard():
                     streak += 1
                     d -= timedelta(days=1)
             return streak
-        workout_streak = calc_streak(workout_dates, skip_weekends=True)
-        cardio_streak = calc_streak(cardio_dates, skip_weekends=True)
-        sleep_streak = calc_streak(sleep_dates, skip_weekends=True)
-        weight_streak = calc_streak(weight_dates, skip_weekends=True)
+        skip_weekends = get_settings()["streak_skip_weekends"] == "1"
+        workout_streak = calc_streak(workout_dates, skip_weekends=skip_weekends)
+        cardio_streak = calc_streak(cardio_dates, skip_weekends=skip_weekends)
+        sleep_streak = calc_streak(sleep_dates, skip_weekends=skip_weekends)
+        weight_streak = calc_streak(weight_dates, skip_weekends=skip_weekends)
         last_cardio_row = conn.execute("SELECT date FROM cardio_sessions ORDER BY date DESC LIMIT 1").fetchone()
         # This-week day dots (Sun=0 .. Sat=6)
         _today = date.today()
@@ -1790,6 +1812,51 @@ def save_weight_settings():
     return jsonify({"ok": True})
 
 
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings_page():
+    if request.method == "POST":
+        f = request.form
+        schedule = [
+            {"label": f.get(f"day{i}_label", "").strip()[:40],
+             "color": f.get(f"day{i}_color") if re.fullmatch(r"#[0-9a-fA-F]{6}", f.get(f"day{i}_color", "")) else _SCHEDULE_COLORS[i]}
+            for i in range(7)
+        ]
+        set_setting("schedule", json.dumps(schedule))
+        for key in ["cardio_goal_min", "sleep_goal_hours", "streak_goal_days", "compare_lbs"]:
+            try:
+                if float(f.get(key, "")) > 0:
+                    set_setting(key, f[key])
+            except ValueError:
+                pass
+        set_setting("streak_skip_weekends", "1" if f.get("streak_skip_weekends") else "0")
+        set_setting("compare_name", f.get("compare_name", "").strip()[:40] or SETTINGS_DEFAULTS["compare_name"])
+        # Body stats may be cleared
+        ft, inch = f.get("height_ft", "").strip(), f.get("height_in", "").strip()
+        try:
+            height = float(ft or 0) * 12 + float(inch or 0)
+        except ValueError:
+            height = 0
+        set_setting("height_inches", str(height) if height else "")
+        for key in ["goal_weight", "age"]:
+            try:
+                set_setting(key, str(float(f[key]) if key == "goal_weight" else int(f[key])) if f.get(key, "").strip() else "")
+            except ValueError:
+                pass
+        set_setting("sex", f.get("sex") if f.get("sex") in ("male", "female") else "")
+        return redirect(url_for("settings_page", saved=1))
+
+    settings = get_settings()
+    height = float(settings["height_inches"]) if settings["height_inches"] else None
+    return render_template(
+        "settings.html",
+        schedule=list(zip(WEEKDAYS, get_schedule(settings))),
+        height_ft=int(height // 12) if height else "",
+        height_in=f"{round(height % 12, 1):g}" if height else "",
+        saved=request.args.get("saved"),
+    )
+
+
 @app.route("/weight/add", methods=["POST"])
 @login_required
 def add_weight():
@@ -2053,8 +2120,8 @@ def cardio():
     ]
     chart_minutes = [round(wk["minutes"]) for wk in weeks]
 
-    # Cardio goal streak — consecutive weeks hitting 150 min, counting back from last completed week
-    cardio_goal = 150
+    # Cardio goal streak — consecutive weeks hitting the goal, counting back from last completed week
+    cardio_goal = setting_num(get_settings(), "cardio_goal_min")
     goal_streak = 0
     cur_wk_start = week_start_of(today)
     for i in range(1, 200):
@@ -2091,7 +2158,7 @@ def cardio():
         cardio_prs=cardio_prs, chart_labels=chart_labels, chart_minutes=chart_minutes,
         chart_dist_labels=chart_dist_labels, chart_dist_values=chart_dist_values,
         chart_dur_labels=chart_dur_labels, chart_dur_values=chart_dur_values,
-        goal_streak=goal_streak, splits_by_session=splits_by_session,
+        goal_streak=goal_streak, cardio_goal=cardio_goal, splits_by_session=splits_by_session,
     )
 
 
@@ -2621,8 +2688,9 @@ def stats():
             if v > 1_000:     return f"{v/1_000:.0f}K lbs"
             return f"{v:.0f} lbs"
 
-        WARLOCK_LBS = 4798  # 2021 RAM 1500 Warlock Quad Cab 4x4 curb weight
-        warlocks_lifted = round(total_volume / WARLOCK_LBS, 2) if total_volume else 0
+        _settings = get_settings()
+        compare_lbs = setting_num(_settings, "compare_lbs")
+        compare_lifted = round(total_volume / compare_lbs, 2) if total_volume else 0
 
         # --- Weekly volume by muscle group (last 8 weeks) ---
         from datetime import date as _mgvd
@@ -2698,8 +2766,8 @@ def stats():
         pr_counts=pr_counts,
         mg_week_rows=mg_week_rows,
         neglected_rows=neglected_rows,
-        warlocks_lifted=warlocks_lifted,
-        warlock_lbs=WARLOCK_LBS,
+        compare_lifted=compare_lifted,
+        compare_lbs=compare_lbs,
         mg_vol_weeks=mg_vol_weeks,
         mg_vol_data=mg_vol_data,
     )
@@ -2936,11 +3004,12 @@ def sleep():
     qualities = [r["quality"] for r in logs if r["quality"]]
     avg_duration = round(sum(durations) / len(durations)) if durations else None
     avg_quality = round(sum(qualities) / len(qualities)) if qualities else None
-    # weekly sleep debt (8hr = 480 min target, last 7 entries)
+    # weekly sleep debt vs nightly target, last 7 entries
+    sleep_goal_min = setting_num(get_settings(), "sleep_goal_hours") * 60
     recent = [r["duration_min"] for r in logs[:7] if r["duration_min"]]
     weekly_debt = None
     if recent:
-        weekly_debt = round((480 * len(recent) - sum(recent)) / 60, 1)
+        weekly_debt = round((sleep_goal_min * len(recent) - sum(recent)) / 60, 1)
     # 30-day trend (last 30 logs)
     chart_logs = [r for r in logs[:30] if r["duration_min"]][::-1]
     chart_labels = [r["date"] for r in chart_logs]
@@ -2965,7 +3034,7 @@ def sleep():
             "nights": len(entries),
             "avg_duration": round(sum(durs) / len(durs)) if durs else None,
             "avg_quality": round(sum(quals) / len(quals)) if quals else None,
-            "debt": round((480 * len(durs) - sum(durs)) / 60, 1) if durs else None,
+            "debt": round((sleep_goal_min * len(durs) - sum(durs)) / 60, 1) if durs else None,
         })
 
     quality_logs = [r for r in logs if r["quality"]]

@@ -7,7 +7,7 @@
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <h1 class="page-title" style="margin:0;">Lifts</h1>
     {% if day_workout %}
-    <span style="font-size:12px;font-weight:600;color:{{ day_workout[2] }};background:{{ day_workout[2] }}22;border:1px solid {{ day_workout[2] }}44;border-radius:20px;padding:2px 10px;white-space:nowrap;">{{ day_workout[0] }} · {{ day_workout[1] }} Day</span>
+    <span style="font-size:12px;font-weight:600;color:{{ day_workout[2] }};background:{{ day_workout[2] }}22;border:1px solid {{ day_workout[2] }}44;border-radius:20px;padding:2px 10px;white-space:nowrap;">{{ day_workout[0] }} · {{ day_workout[1] }}</span>
     {% endif %}
     {% if days_since_last is not none %}
     <span style="font-size:12px;font-weight:600;color:var(--text-3);background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:20px;padding:2px 10px;white-space:nowrap;">

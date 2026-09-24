@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Settings — WorkoutTracker{% endblock %}
+{% block header_title %}Settings{% endblock %}
+{% block content %}
+
+<h1 class="page-title" style="margin-bottom:20px;">Settings</h1>
+
+{% if saved %}
+<div class="card" style="margin-bottom:16px;padding:12px 16px;border-color:rgba(16,185,129,.4);color:#6ee7b7;font-size:13px;font-weight:600;">Settings saved.</div>
+{% endif %}
+
+<form method="post" style="display:flex;flex-direction:column;gap:16px;max-width:640px;">
+
+  <div class="card">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Weekly Schedule</h2>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;">What you train each day. It shows as a badge on the Dashboard and Lifts pages. Leave a day blank for no badge.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for day_name, day in schedule %}
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:92px;flex-shrink:0;font-size:13px;font-weight:600;color:var(--text-2);">{{ day_name }}</span>
+        <input type="text" name="day{{ loop.index0 }}_label" class="input" maxlength="40" placeholder="e.g. Push Day" value="{{ day.label }}" />
+        <input type="color" name="day{{ loop.index0 }}_color" value="{{ day.color }}" title="Badge color" style="width:40px;height:38px;flex-shrink:0;padding:2px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;cursor:pointer;" />
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:14px;">Goals</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div>
+        <label class="label">Weekly cardio (min)</label>
+        <input type="number" name="cardio_goal_min" class="input" min="1" step="1" value="{{ settings.cardio_goal_min }}" />
+      </div>
+      <div>
+        <label class="label">Sleep per night (hr)</label>
+        <input type="number" name="sleep_goal_hours" class="input" min="1" max="24" step="0.25" value="{{ settings.sleep_goal_hours }}" />
+      </div>
+      <div>
+        <label class="label">Streak goal (days)</label>
+        <input type="number" name="streak_goal_days" class="input" min="1" step="1" value="{{ settings.streak_goal_days }}" />
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--text-2);cursor:pointer;">
+      <input type="checkbox" name="streak_skip_weekends" value="1" {% if settings.streak_skip_weekends == '1' %}checked{% endif %} />
+      Weekends don't break streaks
+    </label>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Body</h2>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;">Used for goal tracking, BMI and body fat estimates on the Body Weight page.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div>
+        <label class="label">Goal weight (lbs)</label>
+        <input type="number" name="goal_weight" class="input" step="0.1" placeholder="e.g. 180" value="{{ settings.goal_weight | float | round(1) if settings.goal_weight else '' }}" />
+      </div>
+      <div>
+        <label class="label">Height</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" name="height_ft" class="input" placeholder="ft" min="3" max="8" value="{{ height_ft }}" />
+          <input type="number" name="height_in" class="input" placeholder="in" min="0" max="11.5" step="0.5" value="{{ height_in }}" />
+        </div>
+      </div>
+      <div>
+        <label class="label">Age</label>
+        <input type="number" name="age" class="input" min="10" max="100" placeholder="e.g. 25" value="{{ settings.age }}" />
+      </div>
+      <div>
+        <label class="label">Sex</label>
+        <select name="sex" class="input">
+          <option value="">Select…</option>
+          <option value="male" {% if settings.sex == 'male' %}selected{% endif %}>Male</option>
+          <option value="female" {% if settings.sex == 'female' %}selected{% endif %}>Female</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Stats Comparison</h2>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;">The Stats page shows your total volume lifted as a count of this object.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+      <div>
+        <label class="label">Name (plural)</label>
+        <input type="text" name="compare_name" class="input" maxlength="40" value="{{ settings.compare_name }}" />
+      </div>
+      <div>
+        <label class="label">Weight each (lbs)</label>
+        <input type="number" name="compare_lbs" class="input" min="1" step="1" value="{{ settings.compare_lbs }}" />
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </div>
+</form>
+
+{% endblock %}

@@ -8,7 +8,7 @@
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <p class="page-sub" style="margin:0;">{{ now }}</p>
     {% if day_workout %}
-    <span style="font-size:12px;font-weight:600;color:{{ day_workout[2] }};background:{{ day_workout[2] }}22;border:1px solid {{ day_workout[2] }}44;border-radius:20px;padding:2px 10px;white-space:nowrap;">{{ day_workout[0] }} · {{ day_workout[1] | safe }} Day</span>
+    <span style="font-size:12px;font-weight:600;color:{{ day_workout[2] }};background:{{ day_workout[2] }}22;border:1px solid {{ day_workout[2] }}44;border-radius:20px;padding:2px 10px;white-space:nowrap;">{{ day_workout[0] }} · {{ day_workout[1] }}</span>
     {% endif %}
   </div>
 </div>
@@ -149,22 +149,23 @@
 </div>
 
 <!-- Streaks -->
+{% set streak_goal = (settings.streak_goal_days | float | int) or 7 %}
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;" class="stat-grid">
   <div class="stat-card" style="--stat-accent:#ff5500;text-align:center;">
     <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Lift Streak</div>
     <div style="font-size:26px;font-weight:800;color:#93c5fd;line-height:1;" class="stat-num" data-target="{{ workout_streak }}">{{ workout_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
     <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:{{ [workout_streak * 100 // 7, 100] | min }}%;background:#ff5500;border-radius:2px;transition:width 1s ease;"></div>
+      <div style="height:100%;width:{{ [workout_streak * 100 // streak_goal, 100] | min }}%;background:#ff5500;border-radius:2px;transition:width 1s ease;"></div>
     </div>
-    <div style="font-size:10px;color:var(--text-3);">{{ [workout_streak, 7] | min }}/7 day goal</div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [workout_streak, streak_goal] | min }}/{{ streak_goal }} day goal</div>
   </div>
   <div class="stat-card" style="--stat-accent:#f59e0b;text-align:center;">
     <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Cardio Streak</div>
     <div style="font-size:26px;font-weight:800;color:#fcd34d;line-height:1;" class="stat-num" data-target="{{ cardio_streak }}">{{ cardio_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
     <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:{{ [cardio_streak * 100 // 7, 100] | min }}%;background:#f59e0b;border-radius:2px;transition:width 1s ease;"></div>
+      <div style="height:100%;width:{{ [cardio_streak * 100 // streak_goal, 100] | min }}%;background:#f59e0b;border-radius:2px;transition:width 1s ease;"></div>
     </div>
-    <div style="font-size:10px;color:var(--text-3);">{{ [cardio_streak, 7] | min }}/7 day goal</div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [cardio_streak, streak_goal] | min }}/{{ streak_goal }} day goal</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;" class="stat-grid">
@@ -172,17 +173,17 @@
     <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Sleep Streak</div>
     <div style="font-size:26px;font-weight:800;color:#c4b5fd;line-height:1;" class="stat-num" data-target="{{ sleep_streak }}">{{ sleep_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
     <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:{{ [sleep_streak * 100 // 7, 100] | min }}%;background:#8b5cf6;border-radius:2px;transition:width 1s ease;"></div>
+      <div style="height:100%;width:{{ [sleep_streak * 100 // streak_goal, 100] | min }}%;background:#8b5cf6;border-radius:2px;transition:width 1s ease;"></div>
     </div>
-    <div style="font-size:10px;color:var(--text-3);">{{ [sleep_streak, 7] | min }}/7 day goal</div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [sleep_streak, streak_goal] | min }}/{{ streak_goal }} day goal</div>
   </div>
   <div class="stat-card" style="--stat-accent:#10b981;text-align:center;">
     <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Weight Streak</div>
     <div style="font-size:26px;font-weight:800;color:#6ee7b7;line-height:1;" class="stat-num" data-target="{{ weight_streak }}">{{ weight_streak }}<span style="font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px;">d</span></div>
     <div style="margin:8px 0 4px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:{{ [weight_streak * 100 // 7, 100] | min }}%;background:#10b981;border-radius:2px;transition:width 1s ease;"></div>
+      <div style="height:100%;width:{{ [weight_streak * 100 // streak_goal, 100] | min }}%;background:#10b981;border-radius:2px;transition:width 1s ease;"></div>
     </div>
-    <div style="font-size:10px;color:var(--text-3);">{{ [weight_streak, 7] | min }}/7 day goal</div>
+    <div style="font-size:10px;color:var(--text-3);">{{ [weight_streak, streak_goal] | min }}/{{ streak_goal }} day goal</div>
   </div>
 </div>
 

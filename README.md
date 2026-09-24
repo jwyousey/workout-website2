@@ -15,6 +15,15 @@ python3 app.py
 
 Open http://localhost:5000. The first run creates an empty `workout.db` (SQLite) next to `app.py` and fills the exercise bank with a starter list. You can add your own exercises on the Exercises page.
 
+## Make it yours
+
+Open **Settings** (the gear icon in the top bar, or the sidebar) to set:
+
+- **Weekly schedule:** what you train each day, shown as a badge on the Dashboard and Lifts pages
+- **Goals:** weekly cardio minutes, nightly sleep hours, streak goal, and whether weekends break streaks
+- **Body:** goal weight, height, age and sex (used for BMI and body fat estimates)
+- **Stats comparison:** the object your total volume is measured in on the Stats page
+
 ## Environment variables (all optional)
 
 | Variable       | What it does                                                                 |
