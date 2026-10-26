@@ -41,12 +41,13 @@
       v: VERSION, savedAt: Date.now(),
       date: val('workoutDate'), name: val('workoutName'), customName: val('workoutNameCustom'),
       notes: val('workoutNotes'), duration: val('durationMin'), rating: val('workoutRating'),
+      calories: val('caloriesBurned'), avgHeartRate: val('avgHeartRate'),
       exercises,
     };
   }
 
   function hasContent(d) {
-    return d.name || d.customName.trim() || d.notes.trim() || d.duration || d.rating ||
+    return d.name || d.customName.trim() || d.notes.trim() || d.duration || d.rating || d.calories || d.avgHeartRate ||
       d.exercises.some(e => e.name || e.note.trim() || e.sets.length);
   }
 
@@ -69,6 +70,8 @@
     handleWorkoutNameSelect(nameSel);
     document.getElementById('workoutNotes').value = d.notes || '';
     document.getElementById('durationMin').value = d.duration || '';
+    document.getElementById('caloriesBurned').value = d.calories || '';
+    document.getElementById('avgHeartRate').value = d.avgHeartRate || '';
     if (d.rating) setRating(parseInt(d.rating));
 
     document.getElementById('exercises').innerHTML = '';

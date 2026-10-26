@@ -40,6 +40,14 @@
     <label class="label" style="margin:0;white-space:nowrap;">Duration <span style="color:var(--text-3);font-weight:400;">(min)</span></label>
     <input type="number" id="durationMin" class="input" style="width:80px;text-align:center;" placeholder="—" min="1" inputmode="numeric" value="{{ workout.duration_min or '' }}" />
   </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label class="label" style="margin:0;white-space:nowrap;">Calories</label>
+    <input type="number" id="caloriesBurned" class="input" style="width:80px;text-align:center;" placeholder="—" min="1" max="10000" inputmode="numeric" value="{{ workout.calories or '' }}" />
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label class="label" style="margin:0;white-space:nowrap;">Avg HR <span style="color:var(--text-3);font-weight:400;">(bpm)</span></label>
+    <input type="number" id="avgHeartRate" class="input" style="width:80px;text-align:center;" placeholder="—" min="30" max="250" inputmode="numeric" value="{{ workout.avg_heart_rate or '' }}" />
+  </div>
   <div style="display:flex;align-items:center;gap:6px;">
     <label class="label" style="margin:0;white-space:nowrap;">Rating</label>
     <div id="ratingStars" style="display:flex;gap:2px;">
@@ -277,6 +285,8 @@ async function saveWorkout() {
     notes: document.getElementById('workoutNotes').value,
     duration_min: parseInt(document.getElementById('durationMin').value) || null,
     rating: parseInt(document.getElementById('workoutRating').value) || null,
+    calories: parseInt(document.getElementById('caloriesBurned').value) || null,
+    avg_heart_rate: parseInt(document.getElementById('avgHeartRate').value) || null,
     exercises,
   };
   const res = await fetch('/workouts/{{ workout.id }}/edit', {

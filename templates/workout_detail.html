@@ -24,6 +24,14 @@
       <span style="font-size:12px;color:var(--text-3);">·</span>
       <span style="font-size:12px;font-weight:600;color:var(--text-2);">{{ workout.duration_min }} min</span>
       {% endif %}
+      {% if workout.calories %}
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;font-weight:600;color:#fb923c;">{{ workout.calories }} cal</span>
+      {% endif %}
+      {% if workout.avg_heart_rate %}
+      <span style="font-size:12px;color:var(--text-3);">·</span>
+      <span style="font-size:12px;font-weight:600;color:#f87171;">♥ {{ workout.avg_heart_rate }} bpm avg</span>
+      {% endif %}
       {% if workout.rating %}
       <span style="font-size:12px;color:var(--text-3);">·</span>
       <span style="font-size:12px;color:#fcd34d;">{% for i in range(workout.rating) %}★{% endfor %}{% for i in range(5 - workout.rating) %}<span style="color:var(--text-3);">★</span>{% endfor %}</span>

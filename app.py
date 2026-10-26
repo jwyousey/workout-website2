@@ -141,7 +141,9 @@ _PG_SCHEMA = """
         notes TEXT,
         template_id INTEGER REFERENCES templates(id),
         duration_min INTEGER,
-        rating INTEGER
+        rating INTEGER,
+        calories INTEGER,
+        avg_heart_rate INTEGER
     );
     CREATE TABLE IF NOT EXISTS sets (
         id SERIAL PRIMARY KEY,
@@ -249,7 +251,9 @@ _SQLITE_SCHEMA = """
         notes TEXT,
         template_id INTEGER REFERENCES templates(id),
         duration_min INTEGER,
-        rating INTEGER
+        rating INTEGER,
+        calories INTEGER,
+        avg_heart_rate INTEGER
     );
     CREATE TABLE IF NOT EXISTS sets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -655,6 +659,8 @@ def init_db():
             """)
         cur.execute("ALTER TABLE workouts ADD COLUMN IF NOT EXISTS duration_min INTEGER")
         cur.execute("ALTER TABLE workouts ADD COLUMN IF NOT EXISTS rating INTEGER")
+        cur.execute("ALTER TABLE workouts ADD COLUMN IF NOT EXISTS calories INTEGER")
+        cur.execute("ALTER TABLE workouts ADD COLUMN IF NOT EXISTS avg_heart_rate INTEGER")
         cur.execute("ALTER TABLE sets ADD COLUMN IF NOT EXISTS superset_group INTEGER")
         cur.execute("ALTER TABLE sets ADD COLUMN IF NOT EXISTS is_warmup INTEGER DEFAULT 0")
         cur.execute("ALTER TABLE sets ADD COLUMN IF NOT EXISTS exercise_note TEXT")
@@ -687,7 +693,7 @@ def init_db():
                 sq.commit()
             except Exception:
                 pass
-        for col in ["duration_min INTEGER", "rating INTEGER"]:
+        for col in ["duration_min INTEGER", "rating INTEGER", "calories INTEGER", "avg_heart_rate INTEGER"]:
             try:
                 sq.execute(f"ALTER TABLE workouts ADD COLUMN {col}")
                 sq.commit()
@@ -829,6 +835,15 @@ def workout_type_label(name):
 
 
 # ---------- helpers ----------
+
+def int_in_range(value, low, high):
+    """Optional whole number from a form/JSON value; None if blank or out of range."""
+    try:
+        n = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return n if low <= n <= high else None
+
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 _SCHEDULE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444"]
@@ -1436,8 +1451,9 @@ def new_workout():
         with db() as conn:
             rating = data.get("rating") or None
             cur = conn.execute(
-                "INSERT INTO workouts (date, name, notes, template_id, duration_min, rating) VALUES (?,?,?,?,?,?)",
-                (date, name, notes, template_id, duration_min, rating),
+                "INSERT INTO workouts (date, name, notes, template_id, duration_min, rating, calories, avg_heart_rate) VALUES (?,?,?,?,?,?,?,?)",
+                (date, name, notes, template_id, duration_min, rating,
+                 int_in_range(data.get("calories"), 1, 10000), int_in_range(data.get("avg_heart_rate"), 30, 250)),
             )
             workout_id = cur.lastrowid
             for ex in exercises:
@@ -1609,6 +1625,8 @@ def api_export():
             "notes": w["notes"],
             "duration_min": w["duration_min"],
             "rating": w["rating"],
+            "calories": w["calories"],
+            "avg_heart_rate": w["avg_heart_rate"],
             "sets": sets_by_workout.get(w["id"], []),
         })
     return jsonify(result)
@@ -1884,7 +1902,11 @@ def edit_workout(workout_id):
         duration_min = data.get("duration_min") or None
         exercises = data.get("exercises", [])
         with db() as conn:
-            conn.execute("UPDATE workouts SET date=?, name=?, notes=?, duration_min=?, rating=? WHERE id=?", (date, name, notes, duration_min, data.get("rating") or None, workout_id))
+            conn.execute(
+                "UPDATE workouts SET date=?, name=?, notes=?, duration_min=?, rating=?, calories=?, avg_heart_rate=? WHERE id=?",
+                (date, name, notes, duration_min, data.get("rating") or None,
+                 int_in_range(data.get("calories"), 1, 10000), int_in_range(data.get("avg_heart_rate"), 30, 250), workout_id),
+            )
             conn.execute("DELETE FROM sets WHERE workout_id=?", (workout_id,))
             for ex in exercises:
                 ss_group = ex.get("superset_group")
@@ -3090,7 +3112,7 @@ def export():
 
     with db() as conn:
         all_workouts = conn.execute("""
-            SELECT w.id, w.date, w.name, w.notes, w.duration_min, w.rating
+            SELECT w.id, w.date, w.name, w.notes, w.duration_min, w.rating, w.calories, w.avg_heart_rate
             FROM workouts w ORDER BY w.date DESC, w.id DESC
         """).fetchall()
         all_sets = conn.execute("""
@@ -3121,6 +3143,10 @@ def export():
             meta_parts.append(f"{dur} min")
         if rating:
             meta_parts.append(f"{rating}/5 stars")
+        if workout["calories"]:
+            meta_parts.append(f"{workout['calories']} cal")
+        if workout["avg_heart_rate"]:
+            meta_parts.append(f"{workout['avg_heart_rate']} bpm avg")
         meta_cell = ws_w.cell(row, 3, " · ".join(meta_parts))
         meta_cell.font = Font(name="Arial", color="D6E4F0", size=9, italic=True)
         meta_cell.fill = WORKOUT_HEADER_FILL
