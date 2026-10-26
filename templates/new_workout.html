@@ -136,6 +136,7 @@
 {% block scripts %}
 <script src="/static/exercise-search.js"></script>
 <script src="/static/exercise-reorder.js"></script>
+<script src="/static/workout-draft.js"></script>
 <style>
 .ss-link-btn {
   display:flex;align-items:center;justify-content:center;gap:4px;margin:4px auto;padding:3px 10px;
@@ -437,6 +438,7 @@ async function saveWorkout() {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
+  if (data.id) workoutSaved();
   if (data.new_prs && data.new_prs.length) {
     showPrCelebration(data.new_prs, () => window.location.href = `/workouts/${data.id}`);
   } else {

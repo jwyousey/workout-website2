@@ -39,6 +39,8 @@
     updateMoveButtons();
   }
 
+  window.refreshSupersetLinks = refreshSupersetLinks;
+
   window.moveExercise = function (btn, dir) {
     const block = btn.closest('.exercise-block');
     const blocks = blocksOf();
