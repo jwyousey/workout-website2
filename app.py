@@ -2042,13 +2042,19 @@ def weight():
         cutoff_30 = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
         recent = [e for e in entries if e["date"] >= cutoff_30]
         if len(recent) >= 2:
-            oldest = recent[-1]
-            newest = recent[0]
-            days_span = (datetime.strptime(newest["date"], "%Y-%m-%d") - datetime.strptime(oldest["date"], "%Y-%m-%d")).days
-            if days_span > 0:
-                rate_per_day = (newest["weight"] - oldest["weight"]) / days_span
-                if rate_per_day < 0:
-                    days_left = (current_weight - goal_weight) / abs(rate_per_day)
+            # Trend line (least squares) through every weigh-in in the window, so one
+            # heavy or light day barely moves the estimate
+            first_day = datetime.strptime(recent[-1]["date"], "%Y-%m-%d")
+            xs = [(datetime.strptime(e["date"], "%Y-%m-%d") - first_day).days for e in recent]
+            ys = [e["weight"] for e in recent]
+            mean_x, mean_y = sum(xs) / len(xs), sum(ys) / len(ys)
+            spread = sum((x - mean_x) ** 2 for x in xs)
+            if spread > 0:
+                rate_per_day = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / spread
+                # Start from where the trend line puts you today, not today's (noisy) weigh-in
+                trend_today = mean_y + rate_per_day * ((datetime.today() - first_day).days - mean_x)
+                if rate_per_day < 0 and trend_today > goal_weight:
+                    days_left = (trend_today - goal_weight) / abs(rate_per_day)
                     eta_date = (datetime.today() + timedelta(days=days_left)).strftime("%Y-%m-%d")
                     goal_eta = {"date": eta_date, "weeks": round(days_left / 7, 1)}
 
