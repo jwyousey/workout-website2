@@ -195,7 +195,10 @@
     .hdr-btn:hover { background:rgba(255,255,255,0.09);color:var(--text); }
     .hdr-btn-primary { background:var(--accent);color:#fff;border-color:var(--accent); }
     .hdr-btn-primary:hover { background:var(--accent-dk);box-shadow:0 2px 16px rgba(255,85,0,.5); }
-    @media (max-width:700px) { .hdr-label { display:none; } .hdr-btn { padding:7px 8px; } .topbar { padding:0 10px !important; gap:5px !important; } }
+    .hdr-menu-btn { display:none; }
+    .nav-menu { margin:8px; padding:12px; max-height:calc(100vh - 96px); overflow-y:auto; }  /* drops down under the menu button */
+    .nav-menu-links { display:flex; flex-direction:column; gap:2px; }
+    @media (max-width:700px) { .hdr-menu-btn { display:inline-flex; } .hdr-desktop-only { display:none; } .hdr-label { display:none; } .hdr-btn { padding:7px 8px; } .topbar { padding:0 10px !important; gap:5px !important; } }
 
     /* Scan lines on cards */
     .card::after, .stat-card::after {
@@ -318,6 +321,9 @@
   <main class="main">
     <!-- Top header bar -->
     <div class="topbar" style="position:sticky;top:0;z-index:10;background:rgba(8,8,8,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 16px;display:flex;align-items:center;height:56px;gap:8px;">
+      <button type="button" class="hdr-btn hdr-menu-btn" onclick="openNavMenu()" title="All pages" aria-label="Open menu">
+        <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
       <div style="flex:1;font-size:14px;font-weight:700;color:{% block header_color %}var(--text-2){% endblock %};letter-spacing:.04em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-size:15px;">
         {% block header_title %}Progress Log{% endblock %}
       </div>
@@ -337,7 +343,7 @@
         <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
         <span class="hdr-label">Log Sleep</span>
       </button>
-      <a href="/export" class="hdr-btn" title="Export">
+      <a href="/export" class="hdr-btn hdr-desktop-only" title="Export">
         <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         <span class="hdr-label">Export</span>
       </a>
@@ -350,6 +356,10 @@
     </div>
 
     <!-- Global weight modal -->
+    <dialog id="navMenu" class="nav-menu" onclick="if(event.target===this)this.close()" aria-label="All pages">
+      <div class="nav-menu-links"></div>
+    </dialog>
+
     <dialog id="weightModal" onclick="if(event.target===this)this.close()">
       <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;">Log Weight</h3>
       <div style="display:flex;flex-direction:column;gap:12px;">
@@ -432,6 +442,18 @@
   }
   applyTheme(localStorage.getItem('theme') === 'light');
 
+  // Phone menu: every sidebar page plus Export (which leaves the top bar on phones)
+  function openNavMenu() {
+    const box = document.querySelector('#navMenu .nav-menu-links');
+    if (!box.children.length) {
+      box.innerHTML = document.querySelector('.sidebar-nav').innerHTML +
+        '<a href="/export" class="nav-link"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export</a>';
+      box.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navMenu.close()));
+    }
+    navMenu.showModal();
+    document.activeElement?.blur();  // no focus ring on the first link
+  }
+
   function localDateStr() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -483,21 +505,21 @@
     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
     Cardio
   </a>
-  <a href="/progress" class="{% if '/progress' in request.path %}active{% endif %}">
-    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-    Progress
-  </a>
-  <a href="/prs" class="{% if '/prs' in request.path %}active{% endif %}">
-    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-    PRs
+  <a href="/weight" class="{% if '/weight' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+    Weight
   </a>
   <a href="/sleep" class="{% if '/sleep' in request.path %}active{% endif %}">
     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
     Sleep
   </a>
-  <a href="/stats" class="{% if '/stats' in request.path %}active{% endif %}">
-    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    Stats
+  <a href="/weekly-notes" class="{% if '/weekly-notes' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    Notes
+  </a>
+  <a href="/progress" class="{% if '/progress' in request.path %}active{% endif %}">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+    Progress
   </a>
 </nav>
 </body>
