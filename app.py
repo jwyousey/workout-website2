@@ -754,6 +754,18 @@ def init_db():
         except Exception:
             pass
         sq.close()
+    # One-time: sort existing exercises into the finer muscle groups (Quads, Abs...)
+    # and add the expanded starter exercises. Only touches exercises filed under Legs/Other.
+    with db() as conn:
+        done = conn.execute("SELECT value FROM user_settings WHERE key='muscle_groups_v2'").fetchone()
+        if not done:
+            for name, group in _MUSCLE_GROUP_MAP.items():
+                conn.execute(
+                    "UPDATE exercise_bank SET muscle_group=? WHERE name=? AND (muscle_group IS NULL OR muscle_group IN ('Legs', 'Other'))",
+                    (group, name),
+                )
+                conn.execute("INSERT INTO exercise_bank (name, muscle_group) VALUES (?, ?) ON CONFLICT (name) DO NOTHING", (name, group))
+            conn.execute("INSERT INTO user_settings (key, value) VALUES ('muscle_groups_v2', 'done')")
 
 
 init_db()
