@@ -83,6 +83,7 @@
         <option value="__other__">Other (type new)</option>
       </select>
     </div>
+    <div class="last-time" style="font-size:12px;color:var(--text-3);margin-bottom:12px;display:none;"></div>
     <div class="ex-note-wrap" style="margin-bottom:10px;">
       <input type="text" class="input ex-note" placeholder="Exercise note (optional)" style="font-size:12px;padding:6px 10px;color:var(--text-2);" />
     </div>
@@ -122,6 +123,7 @@
 {% endblock %}
 {% block scripts %}
 <script src="/static/exercise-search.js"></script>
+<script src="/static/previous-numbers.js"></script>
 <script src="/static/exercise-reorder.js"></script>
 <style>
 .ss-link-btn {
@@ -138,6 +140,8 @@
 <script>
 const exTpl = document.getElementById('exTpl');
 const setTpl = document.getElementById('setTpl');
+const LAST_SETS = {{ last_sets_json | safe }};
+const LAST_BY_REPS = {{ last_by_reps_json | safe }};
 const EXERCISE_BANK = {{ exercise_bank_json | safe }};
 const MUSCLE_GROUPS = Object.keys(EXERCISE_BANK).sort();
 const EXISTING_EXERCISES = {{ exercises_json | safe }};
@@ -169,8 +173,14 @@ function getWorkoutName() {
   return document.getElementById('workoutNameCustom').value.trim();
 }
 
+function refreshPreviousNumbers(block) {
+  updateLastTime(block);
+  const name = getExName(block);
+  block.querySelectorAll('.set-row').forEach(row => updateSetPlaceholder(row, name));
+}
+
 function handleExSelect(sel) {
-  if (sel.value !== '__other__') return;
+  if (sel.value !== '__other__') return refreshPreviousNumbers(sel.closest('.exercise-block'));
   const name = prompt('Enter exercise name:');
   if (!name) { sel.value = ''; return; }
   const opt = new Option(name, name, true, true);
@@ -201,14 +211,18 @@ function addExercise(name = '') {
     exSel.value = name;
   }
   document.getElementById('exercises').appendChild(block);
+  updateLastTime(block);
   return block;
 }
 
 function addSet(btn) {
-  const container = btn.closest('.exercise-block').querySelector('.sets-container');
+  const block = btn.closest('.exercise-block');
+  const container = block.querySelector('.sets-container');
   const row = setTpl.content.cloneNode(true).querySelector('.set-row');
+  row.querySelector('.set-reps').addEventListener('input', () => updateSetPlaceholder(row, getExName(block)));
   container.appendChild(row);
   renumberSets(container);
+  updateSetPlaceholder(row, getExName(block));
   return row;
 }
 
@@ -228,6 +242,7 @@ function addExerciseWithSets(name, sets, note) {
     row.querySelector('.set-weight').value = s.weight ?? '';
     row.querySelector('.set-unit').value = s.unit || 'lbs';
     row.querySelector('.set-rpe').value = s.rpe ?? '';
+    updateSetPlaceholder(row, name);
     if (s.is_warmup) {
       const wb = row.querySelector('.warmup-btn');
       if (wb) { wb.classList.add('active'); wb.style.background='rgba(245,158,11,.15)'; wb.style.borderColor='#f59e0b'; wb.style.color='#f59e0b'; }

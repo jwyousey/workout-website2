@@ -909,6 +909,53 @@ def set_setting(key, value):
             conn.execute("INSERT OR REPLACE INTO user_settings (key, value) VALUES (?, ?)", (key, value))
 
 
+def get_previous_sets(conn, before_workout=None):
+    """Previous-session numbers for the "Last time" hints on Log Lift / Edit Workout.
+
+    Returns (last_sets, last_by_reps):
+      last_sets[exercise]          = sets from the most recent session with that exercise
+      last_by_reps[exercise][reps] = most recent {weight, unit, date} used at that rep count
+    With before_workout, only workouts logged before that one count (so editing an old
+    lift shows what came before it, not newer sessions or itself).
+    """
+    if before_workout:
+        cond = "(w.date < ? OR (w.date = ? AND w.id < ?))"
+        params = (before_workout["date"], before_workout["date"], before_workout["id"])
+    else:
+        cond, params = "1=1", ()
+    last_sets_rows = conn.execute(f"""
+        SELECT s.exercise_name, s.set_number, s.reps, s.weight, s.unit, s.rpe, w.date
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        JOIN (
+            SELECT s2.exercise_name, MAX(w2.date) as max_date
+            FROM sets s2 JOIN workouts w2 ON w2.id = s2.workout_id
+            WHERE {cond.replace("w.", "w2.")}
+            GROUP BY s2.exercise_name
+        ) latest ON latest.exercise_name = s.exercise_name AND latest.max_date = w.date
+        WHERE {cond}
+        ORDER BY s.exercise_name, s.set_number
+    """, params + params).fetchall()
+    last_by_reps_rows = conn.execute(f"""
+        SELECT s.exercise_name, s.reps, s.weight, s.unit, w.date
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.weight IS NOT NULL AND s.reps IS NOT NULL AND {cond}
+        ORDER BY s.exercise_name, s.reps, w.date, s.id
+    """, params).fetchall()
+    last_sets = {}
+    for r in last_sets_rows:
+        last_sets.setdefault(r["exercise_name"], []).append(
+            {"reps": r["reps"], "weight": r["weight"], "unit": r["unit"], "rpe": r["rpe"], "date": r["date"]}
+        )
+    last_by_reps = {}
+    for r in last_by_reps_rows:
+        last_by_reps.setdefault(r["exercise_name"], {})[r["reps"]] = {
+            "weight": r["weight"], "unit": r["unit"], "date": r["date"]
+        }
+    return last_sets, last_by_reps
+
+
 def get_prs():
     """Return dict of exercise_name -> {weight, reps, date, set_id}."""
     with db() as conn:
@@ -1501,39 +1548,11 @@ def new_workout():
         exercise_bank = conn.execute(
             "SELECT name, muscle_group FROM exercise_bank ORDER BY muscle_group, name"
         ).fetchall()
-        last_sets_rows = conn.execute("""
-            SELECT s.exercise_name, s.set_number, s.reps, s.weight, s.unit, s.rpe, w.date
-            FROM sets s
-            JOIN workouts w ON w.id = s.workout_id
-            JOIN (
-                SELECT s2.exercise_name, MAX(w2.date) as max_date
-                FROM sets s2 JOIN workouts w2 ON w2.id = s2.workout_id
-                GROUP BY s2.exercise_name
-            ) latest ON latest.exercise_name = s.exercise_name AND latest.max_date = w.date
-            ORDER BY s.exercise_name, s.set_number
-        """).fetchall()
-        last_by_reps_rows = conn.execute("""
-            SELECT s.exercise_name, s.reps, s.weight, s.unit, w.date
-            FROM sets s
-            JOIN workouts w ON w.id = s.workout_id
-            WHERE s.weight IS NOT NULL AND s.reps IS NOT NULL
-            ORDER BY s.exercise_name, s.reps, w.date, s.id
-        """).fetchall()
+        last_sets, last_by_reps = get_previous_sets(conn)
     grouped = {}
     for ex in exercise_bank:
         mg = ex["muscle_group"] or "Other"
         grouped.setdefault(mg, []).append(ex["name"])
-    last_sets = {}
-    for r in last_sets_rows:
-        last_sets.setdefault(r["exercise_name"], []).append(
-            {"reps": r["reps"], "weight": r["weight"], "unit": r["unit"], "rpe": r["rpe"], "date": r["date"]}
-        )
-    # last_by_reps[exercise][reps] = most recent {weight, unit, date} logged at that rep count
-    last_by_reps = {}
-    for r in last_by_reps_rows:
-        last_by_reps.setdefault(r["exercise_name"], {})[r["reps"]] = {
-            "weight": r["weight"], "unit": r["unit"], "date": r["date"]
-        }
     import json as _json
     return render_template(
         "new_workout.html",
@@ -1941,6 +1960,7 @@ def edit_workout(workout_id):
         exercise_bank = conn.execute(
             "SELECT name, muscle_group FROM exercise_bank ORDER BY muscle_group, name"
         ).fetchall()
+        last_sets, last_by_reps = get_previous_sets(conn, before_workout=workout)
 
     exercises = {}
     for s in sets:
@@ -1971,6 +1991,8 @@ def edit_workout(workout_id):
         exercise_bank=exercise_bank,
         exercise_bank_json=_json.dumps(grouped),
         exercises_json=_json.dumps(exercises_list),
+        last_sets_json=_json.dumps(last_sets),
+        last_by_reps_json=_json.dumps(last_by_reps),
     )
 
 
